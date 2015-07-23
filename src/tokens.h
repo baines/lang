@@ -51,6 +51,24 @@ struct Token {
 		return reinterpret_cast<T>(data);
 	}
 
+	const char* debug_name_short() const {
+		switch(type){
+			case TokenType::id:           return "id ";
+			case TokenType::number:       return "num";
+			case TokenType::string:       return "str";
+			case TokenType::func_start:   return " ( ";
+			case TokenType::func_end:     return " ) ";
+			case TokenType::list_start:   return " [ ";
+			case TokenType::list_end:     return " ] ";
+			case TokenType::block_start:  return " { ";
+			case TokenType::block_end:    return " } ";
+			case TokenType::native_func:  return "fn ";
+			case TokenType::block_marker: return "bm ";
+			case TokenType::invalid:      return "inv";
+			default:                      return "???";
+		}
+	}
+
 	const char* debug_name() const {
 		switch(type){
 			case TokenType::id:           return "id";

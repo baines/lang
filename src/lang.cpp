@@ -133,6 +133,10 @@ void Context::execute(vector<Token>& token_vec){
 	run(tokens, this->stack, this->sym_tab);
 }
 
+void Context::clear_stack(){
+	stack.clear();
+}
+
 void Context::run_script(const char* script){
 
 	std::vector<Token> tokens;

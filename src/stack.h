@@ -37,7 +37,7 @@ namespace el3 {
 		void debug_print() const {
 			fprintf(stderr, "%p: [", this);
 			for(auto& t : tokens){
-				fprintf(stderr, "%.2s, ", t.debug_name());
+				fprintf(stderr, "%s, ", t.debug_name_short());
 			}
 			fprintf(stderr, "]\n");
 		}
@@ -58,6 +58,10 @@ namespace el3 {
 
 		bool empty() const {
 			return tokens.empty();
+		}
+
+		void clear() {
+			tokens.clear();
 		}
 
 		typename std::vector<Token>::iterator begin() {

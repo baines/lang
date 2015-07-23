@@ -20,13 +20,19 @@ inline void lex_number(const char*& code, std::vector<Token>& tokens){
 
 inline void lex_identifier(const char*& code, std::vector<Token>& tokens){
 	const char* name = code;
-	size_t name_len = 0;
+
+	while(isalnum(*code++));
 	
-	do {
-		++name_len;
-	} while(*(++code) > ' ');
-	
-	tokens.emplace_back(Token(TokenType::id, name, name_len));
+	tokens.emplace_back(Token(TokenType::id, name, code - name));
+}
+
+inline void lex_string(const char*& code, std::vector<Token>& tokens){
+	const char* name = ++code;
+
+	//TODO: handle escape characters
+	while(*code && *code++ != '\'');
+
+	tokens.emplace_back(Token(TokenType::string, name, code - name));
 }
 
 void Context::lex(const char* code, std::vector<Token>& tokens){
@@ -49,6 +55,8 @@ void Context::lex(const char* code, std::vector<Token>& tokens){
 			++code;
 		} else if(*code >= '0' && *code <= '9'){
 			lex_number(code, tokens);
+		} else if(*code == '\''){
+			lex_string(code, tokens);
 		} else {
 			lex_identifier(code, tokens);
 		}

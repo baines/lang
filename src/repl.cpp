@@ -1,14 +1,8 @@
 #include "el3.h"
+#include <readline/readline.h>
+#include <readline/history.h>
 
 int main(int argc, char** argv){
-
-	const char* script = "(+ 1 (+ 2 3))";
-
-	if(argc < 2){
-		fprintf(stderr, "WARNING: no script given, using default.\n");
-	} else {
-		script = argv[1];
-	}	
 
 	el3::Context ctx;
 
@@ -24,9 +18,15 @@ int main(int argc, char** argv){
 
 		stack.push(el3::TokenType::number, result);
 	});
+	
+	const char* line = nullptr;
+	while((line = readline("> "))){
+		add_history(line);
 
-	ctx.run_script(script);
-
+		ctx.run_script(line);
+		ctx.clear_stack();
+	}
+	
+	puts("");
 	return 0;
-
 }
