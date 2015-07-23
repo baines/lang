@@ -7,17 +7,24 @@
 namespace el3 {
 
 enum class TokenType : uint_fast8_t {
-	invalid,
-	id,
-	number,
-	string,
-	func_start,
-	func_end,
-	list_start,
-	list_end,
-	block_start,
-	block_end,
-	native_func,
+
+	/* lexable tokens */
+
+	invalid,      // < unused            , unused               >
+	id,           // < const char* : name, size_t : name_length >
+	number,       // < int         : val , unused               >
+	string,       // < const char* : name, size_t : name_length >
+	func_start,   // < unused            , unused               >
+	func_end,     // < unused            , unused               >
+	list_start,   // TODO 
+	list_end,     // TODO
+	block_start,  // < unused            , unused               >
+	block_end,    // < unused            , unused               >
+
+	/* not lexable, only appear on stack. */
+
+	native_func,  // < Symbol* : sym     , unused               >
+	block_marker, // < int     : index   , unused               >
 
 	num_tokens
 };
@@ -25,50 +32,68 @@ enum class TokenType : uint_fast8_t {
 struct Token {
 	Token(TokenType t, const void* d, size_t s = 0)
 	   	: type(t), data(reinterpret_cast<intptr_t>(d)), size(s){}
-	Token(TokenType t, const intptr_t d, size_t s = 0) : type(t), data(d), size(s){}
-	Token(TokenType t) : Token(t, nullptr, 0){}
-	Token() : Token(TokenType::invalid, nullptr, 0){}
+
+	Token(TokenType t, const intptr_t d, size_t s = 0) 
+		: type(t), data(d), size(s){}
+
+	Token(TokenType t) 
+		: Token(t, nullptr, 0){}
+
+	Token() 
+		: Token(TokenType::invalid, nullptr, 0){}
 
 	operator bool() const {
 		return type != TokenType::invalid;
+	}
+
+	const char* debug_name() const {
+		switch(type){
+			case TokenType::id:          return "id";
+			case TokenType::number:      return "number";
+			case TokenType::string:      return "string";
+			case TokenType::func_start:  return "func_start";
+			case TokenType::func_end:    return "func_end";
+			case TokenType::list_start:  return "list_start";
+			case TokenType::list_end:    return "list_end";
+			case TokenType::block_start: return "block_start";
+			case TokenType::block_end:   return "block_end";
+			case TokenType::native_func: return "native_func";
+			case TokenType::invalid:     return "invalid";
+			default:                     return "unknown";
+		}
+	}
+
+	void debug_print() const {
+		switch(type){
+			case TokenType::id: {
+				printf("id: '%.*s'\n", (int)size, (const char*)data);
+				break;
+			}
+			case TokenType::number: {
+				printf("num: '%d'\n", (int)data);
+				break;
+			}
+			case TokenType::string: {
+				printf("str: '%.*s'\n", (int)size, (const char*)data);
+				break;
+			}
+			case TokenType::invalid:
+			case TokenType::func_start:
+			case TokenType::func_end:
+			case TokenType::list_start:
+			case TokenType::list_end:
+			case TokenType::block_start:
+			case TokenType::block_end:
+			default:
+				puts(debug_name());
+				break;
+		}
 	}
 
 	TokenType type;
 	intptr_t data;
 	size_t size;
 };
-
-inline void token_print(Token& t){
-	switch(t.type){
-		case TokenType::func_start:
-			puts("FUNC START"); break;
-		case TokenType::func_end:
-			puts("FUNC END"); break;
-		case TokenType::list_start:
-			puts("LIST START"); break;
-		case TokenType::list_end:
-			puts("LIST END"); break;
-		case TokenType::block_start:
-			puts("BLOCK START"); break;
-		case TokenType::block_end:
-			puts("BLOCK END"); break;
-		case TokenType::id: {
-			printf("ID: '%.*s'\n", (int)t.size, (const char*)t.data);
-			break;
-		}
-		case TokenType::number: {
-			printf("NUM: '%d'\n", (int)t.data);
-			break;
-		}
-		case TokenType::string: {
-			printf("STR: '%.*s'\n", (int)t.size, (const char*)t.data);
-			break;
-		}
-		case TokenType::invalid: 
-		default:
-			puts("INVALID"); break;
-	}
-}
 
 }
 

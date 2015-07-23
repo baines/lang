@@ -18,24 +18,24 @@ struct TokenList {
 	}
 
 	bool next(){
-		fprintf(stderr, "IP: %zu\n", ip);
+		fprintf(stderr, "ip: %zu\n", ip);
 		return ++ip < tokens.size();
 	}
 
 	size_t ip;
 };
 
-static void run_assert(const TokenList& tokens, Stack& stack, SymbolTable& syms){
-	fprintf(stderr, "Got invalid token type: %d. This should never happen.\n", tokens.current().type);
+static void run_assert(TokenList& tokens, Stack& stack, SymbolTable& syms){
+	fprintf(stderr, "Got invalid token: %s.\n", tokens.current().debug_name());
 	abort();
 }
 
-static void run_stack_push(const TokenList& tokens, Stack& stack, SymbolTable& syms){
-	fprintf(stderr, "Pushing token: %d\n", tokens.current().type);
+static void run_stack_push(TokenList& tokens, Stack& stack, SymbolTable& syms){
+	fprintf(stderr, "Pushing token: [%s]\n", tokens.current().debug_name());
 	stack.push(tokens.current());
 }
 
-static void run_func_eval(const TokenList& tokens, Stack& stack, SymbolTable& syms){
+static void run_func_eval(TokenList& tokens, Stack& stack, SymbolTable& syms){
 	//TODO: ArgStack adaptor for stack, less copying needed.
 
 	Stack args;
@@ -62,13 +62,36 @@ static void run_func_eval(const TokenList& tokens, Stack& stack, SymbolTable& sy
 	stack.append(args);
 }
 
-static void (*fn_table[])(const TokenList& tokens, Stack& stack, SymbolTable& syms) = {
-	run_assert,
-	run_stack_push,
-	run_stack_push,
-	run_stack_push,
-	run_stack_push,
-	run_func_eval
+static void run_block_start(TokenList& tokens, Stack& stack, SymbolTable& syms){
+	stack.push(TokenType::block_marker, tokens.ip);
+
+	// skip all tokens until matching block_end token, they shouldn't be evaluated now.
+	int curly_count = 1;
+	while(curly_count > 0 && tokens.next()){
+		TokenType cur_type = tokens.current().type;
+		if(cur_type == TokenType::block_start){
+			++curly_count;
+		} else 
+		if(cur_type == TokenType::block_end){
+		   	--curly_count;
+		}
+	}
+
+	assert(curly_count == 0);
+}
+
+static void (*fn_table[])(TokenList& tokens, Stack& stack, SymbolTable& syms) = {
+	run_assert,      // invalid
+	run_stack_push,  // id
+	run_stack_push,  // number
+	run_stack_push,  // string
+	run_stack_push,  // func_start
+	run_func_eval,   // func_end
+	run_assert,      // list_start
+	run_assert,      // list_end
+	run_block_start, // block_start
+	run_assert,      // block_end
+	run_assert       // native_func
 };
 
 void Context::execute(vector<Token>& tokens){
@@ -86,7 +109,7 @@ void Context::run_script(const char* script){
 	lex(script, tokens);
 
 	for(auto& t : tokens){
-		token_print(t);
+		t.debug_print();
 	}
 
 	execute(tokens);
@@ -94,7 +117,7 @@ void Context::run_script(const char* script){
 	puts("RESULT:");
 
 	for(auto& t : stack){
-		token_print(t);
+		t.debug_print();
 	}
 
 }

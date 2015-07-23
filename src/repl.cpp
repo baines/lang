@@ -14,10 +14,10 @@ int main(void){
 			result += (int)t.data;
 		}
 
-		stack.push<el3::TokenType::number>(result);
+		stack.push(el3::TokenType::number, result);
 	});
 
-	ctx.run_script("(+ 1 (+ 2 3))");
+	ctx.run_script("(+ 1 1 1 (+ 2 3))");
 
 	return 0;
 

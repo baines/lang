@@ -37,15 +37,14 @@ namespace el3 {
 			tokens.push_back(t);
 		}
 
-		template<TokenType t>
-		void push(const intptr_t data, size_t sz = 0){
+		void push(TokenType t, const intptr_t data, size_t sz = 0){
+			push(Token(t, data, sz));
+		}
+		
+		void push(TokenType t, const void* data, size_t sz = 0){
 			push(Token(t, data, sz));
 		}
 
-		template<TokenType t>
-		void push(const void* data, size_t sz = 0){
-			push(Token(t, data, sz));
-		}
 		bool empty() const {
 			return tokens.empty();
 		}
