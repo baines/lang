@@ -33,7 +33,7 @@ struct Token {
 	Token(TokenType t, const void* d, size_t s = 0)
 	   	: type(t), data(reinterpret_cast<intptr_t>(d)), size(s){}
 
-	Token(TokenType t, const intptr_t d, size_t s = 0) 
+	Token(TokenType t, const uintptr_t d, size_t s = 0) 
 		: type(t), data(d), size(s){}
 
 	Token(TokenType t) 
@@ -46,20 +46,26 @@ struct Token {
 		return type != TokenType::invalid;
 	}
 
+	template<class T>
+	T get() {
+		return reinterpret_cast<T>(data);
+	}
+
 	const char* debug_name() const {
 		switch(type){
-			case TokenType::id:          return "id";
-			case TokenType::number:      return "number";
-			case TokenType::string:      return "string";
-			case TokenType::func_start:  return "func_start";
-			case TokenType::func_end:    return "func_end";
-			case TokenType::list_start:  return "list_start";
-			case TokenType::list_end:    return "list_end";
-			case TokenType::block_start: return "block_start";
-			case TokenType::block_end:   return "block_end";
-			case TokenType::native_func: return "native_func";
-			case TokenType::invalid:     return "invalid";
-			default:                     return "unknown";
+			case TokenType::id:           return "id";
+			case TokenType::number:       return "number";
+			case TokenType::string:       return "string";
+			case TokenType::func_start:   return "func_start";
+			case TokenType::func_end:     return "func_end";
+			case TokenType::list_start:   return "list_start";
+			case TokenType::list_end:     return "list_end";
+			case TokenType::block_start:  return "block_start";
+			case TokenType::block_end:    return "block_end";
+			case TokenType::native_func:  return "native_func";
+			case TokenType::block_marker: return "block_marker";
+			case TokenType::invalid:      return "invalid";
+			default:                      return "unknown";
 		}
 	}
 
@@ -77,13 +83,6 @@ struct Token {
 				printf("str: '%.*s'\n", (int)size, (const char*)data);
 				break;
 			}
-			case TokenType::invalid:
-			case TokenType::func_start:
-			case TokenType::func_end:
-			case TokenType::list_start:
-			case TokenType::list_end:
-			case TokenType::block_start:
-			case TokenType::block_end:
 			default:
 				puts(debug_name());
 				break;
@@ -91,7 +90,7 @@ struct Token {
 	}
 
 	TokenType type;
-	intptr_t data;
+	uintptr_t data;
 	size_t size;
 };
 

@@ -1,6 +1,7 @@
 #ifndef EL3_STACK_H_
 #define EL3_STACK_H_
 #include <vector>
+#include <cassert>
 #include "tokens.h"
 
 namespace el3 {
@@ -33,8 +34,18 @@ namespace el3 {
 			}
 		}
 
+		void debug_print() const {
+			fprintf(stderr, "%p: [", this);
+			for(auto& t : tokens){
+				fprintf(stderr, "%.2s, ", t.debug_name());
+			}
+			fprintf(stderr, "]\n");
+		}
+
 		void push(const Token& t){
+			assert(t.type != TokenType::invalid);
 			tokens.push_back(t);
+			debug_print();
 		}
 
 		void push(TokenType t, const intptr_t data, size_t sz = 0){
