@@ -19,7 +19,7 @@ namespace el3 {
 
 		void clear_stack();
 
-		void lex(const char* script, std::vector<Token>& tokens);
+		bool lex(const char* script, std::vector<Token>& tokens);
 		void execute(std::vector<Token>& tokens);
 
 	private:

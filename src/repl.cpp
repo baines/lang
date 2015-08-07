@@ -19,12 +19,14 @@ int main(int argc, char** argv){
 		stack.push(el3::TokenType::number, result);
 	});
 	
-	const char* line = nullptr;
+	char* line = nullptr;
 	while((line = readline("> "))){
 		add_history(line);
 
 		ctx.run_script(line);
 		ctx.clear_stack();
+
+		free(line);
 	}
 	
 	puts("");

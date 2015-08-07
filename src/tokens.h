@@ -20,11 +20,13 @@ enum class TokenType : uint_fast8_t {
 	list_end,     // TODO
 	block_start,  // < unused            , unused               >
 	block_end,    // < unused            , unused               >
+	symbol,       // < const char* : name, size_t name_length   >
 
 	/* not lexable, only appear on stack. */
 
 	native_func,  // < Symbol* : sym     , unused               >
 	block_marker, // < int     : index   , unused               >
+	nil,          // < unused            , unused               >
 
 	num_tokens
 };
@@ -48,7 +50,7 @@ struct Token {
 
 	template<class T>
 	T get() {
-		return reinterpret_cast<T>(data);
+		return reinterpret_cast<T&>(data);
 	}
 
 	const char* debug_name_short() const {
