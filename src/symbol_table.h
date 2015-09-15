@@ -3,47 +3,77 @@
 #include <map>
 #include <cassert>
 #include <cstring>
-#include "tokens.h"
 #include <functional>
+#include "tokens.h"
+#include "altlib/alt.h"
+
+//TODO: use hashes instead of actual strings for better lookup speed.
 
 namespace el3 {
 
-	struct Symbol {
-
-		Symbol() = default;
-
-		template<class F>
-		Symbol(F&& func) : native_func(std::forward<F>(func)){}
-
-		void call(Stack& s){
-			native_func(s);
-		}
-
-		std::function<void(Stack&)> native_func;
-		//TODO: more stuff
-	};
-
+	using native_fn = std::function<void(Stack&)>;
+	
 	struct SymbolTable {
-		typedef std::pair<const char*, size_t> ID;
 
-		void add(const char* name, size_t name_len, const Symbol& val){
-			syms[std::make_pair(name, name_len)] = val;
+		SymbolTable() : syms(), frame_num(0){}
+
+		void add_native_func(const alt::StrRef& name, const native_fn& func){
+			assert(frame_num == 0 && "Native funcs should be added before running a script.");
+			syms.emplace_back(name, Token{TokenType::native_func, &func}, frame_num);
 		}
 
-		Symbol* lookup(const char* name, size_t name_len){
-			auto it = syms.find(std::make_pair(name, name_len));
-			return it == syms.end() ? nullptr : &(it->second);
+		void add_token(Token id, Token val){
+			if(id.type != TokenType::id && id.type != TokenType::symbol){
+				return;
+			}
+
+			const alt::StrRef name(id.get<const char*>(), id.size);
+			syms.emplace_back(name, val, frame_num);
 		}
 
-		struct IDComp {
-			bool operator()(const ID& a, const ID& b) const {
-				return a.second == b.second
-					? memcmp(a.first, b.first, a.second) < 0
-					: a.second < b.second;
+		Token lookup(Token id){
+			if(id.type != TokenType::id && id.type != TokenType::symbol){
+				return TokenType::invalid;
+			}
+
+			const alt::StrRef name(id.get<const char*>(), id.size);
+			auto it = std::find(syms.rbegin(), syms.rend(), name);
+
+			return it == syms.rend()
+			       ? TokenType::invalid
+			       : it->token;
+		}
+
+		void push_scope(){
+			++frame_num;
+		}
+
+		void pop_scope(){
+			--frame_num;
+			syms.erase(
+				std::remove_if(syms.begin(), syms.end(), [&](const Entry& e){
+					return e.frame_num > frame_num;
+				})
+			);
+		}
+
+		struct Entry {
+			Entry() = default;
+
+			Entry(const alt::StrRef& s, Token t, uint32_t fnum)
+			: name(s), token(t), frame_num(fnum){}
+
+			alt::StrRef name;
+			Token token;
+			uint32_t frame_num;
+
+			bool operator==(const alt::StrRef& str) const {
+				return name == str;
 			}
 		};
 
-		std::map<ID, Symbol, IDComp> syms;
+		std::vector<Entry> syms;
+		uint32_t frame_num;
 	};
 
 };

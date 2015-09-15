@@ -2,6 +2,7 @@
 #define EL3_STACK_H_
 #include <vector>
 #include <cassert>
+#include <algorithm>
 #include "tokens.h"
 
 namespace el3 {
@@ -25,6 +26,18 @@ namespace el3 {
 				return t;
 			} else {
 				return TokenType::invalid;
+			}
+		}
+
+		Token pop_under(TokenType type){
+			auto it = std::find(tokens.rbegin(), tokens.rend(), type);
+
+			if(it == tokens.rend() || ++it == tokens.rend()){
+				return TokenType::invalid;
+			} else {
+				Token t = *it;
+				tokens.erase(it.base()-1);
+				return t;
 			}
 		}
 

@@ -3,16 +3,17 @@
 #include "tokens.h"
 #include "stack.h"
 #include "symbol_table.h"
-#include <vector>
+#include <list>
 
 namespace el3 {
 
 	struct Context {
 		Context() = default;
 		
-		template<size_t N, class T>
-		void addNativeFunc(const char(&name)[N], T&& func){
-			sym_tab.add(name, N-1, Symbol(func));
+		template<class F>
+		void add_func(const alt::StrRef& name, F&& func){
+			native_funcs.push_back(std::forward<F>(func));
+			sym_tab.add_native_func(name, native_funcs.back());
 		}
 
 		void run_script(const char* script);
@@ -25,6 +26,7 @@ namespace el3 {
 	private:
 		Stack stack;
 		SymbolTable sym_tab;
+		std::list<std::function<void(Stack&)>> native_funcs;
 	};
 }
 

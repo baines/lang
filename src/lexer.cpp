@@ -15,20 +15,26 @@ inline Token lex_number(const char*& code){
 	return Token(TokenType::number, result);
 }
 
+constexpr alt::StrRef reserved_chars("()[]{}:\'");
+
 inline Token lex_identifier(const char*& code){
 	const char* name = code;
 
-	while(isgraph(*(code + 1))){
+	char c;
+	while(c = *(code+1), reserved_chars.find(c) == reserved_chars.end() && isgraph(c)){
 		++code;
 	}
 	
 	return Token(TokenType::id, name, (code - name) + 1);
 }
 
-inline Token lex_id_or_number(const char*& code){
+inline Token lex_dash(const char*& code){
 	char next = *(code + 1);
 
-	if(next >= '0' && next <= '9'){
+	if(next == '>'){
+		++code;
+		return TokenType::args_marker;
+	} else if(next >= '0' && next <= '9'){
 		Token t = lex_number(++code);
 		t.data = uintptr_t(t.get<int>() * -1);
 		return t;
@@ -85,7 +91,7 @@ bool Context::lex(const char* code, std::vector<Token>& tokens){
 			case ')':  t = TokenType::func_end;    break;
 			case '[':  t = TokenType::list_start;  break;
 			case ']':  t = TokenType::list_end;    break;
-			case '-':  t = lex_id_or_number(code); break;
+			case '-':  t = lex_dash(code);         break;
 			case ':':  t = lex_symbol(code);       break;
 			case '\'': t = lex_string(code);       break;
 			default: if(isgraph(*code))

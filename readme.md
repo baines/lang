@@ -17,3 +17,7 @@ Probable built-in functions to add:
 - standard operators, +, -, *, /, %, <, >, == etc.
 - 'def' or 'let' style function to add stuff to the symbol table.
 - conditionals like 'if', loops with 'for', 'while' etc.
+
+Trivial currently working example program: (1 + 2 using a lambda function)
+
+    ({ :x -> + x 1 } 2)

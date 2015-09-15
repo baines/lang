@@ -14,26 +14,27 @@ enum class TokenType : uint_fast8_t {
 	id,           // < const char* : name, size_t : name_length >
 	number,       // < int         : val , unused               >
 	string,       // < const char* : name, size_t : name_length >
+	symbol,       // < const char* : name, size_t name_length   >
+	args_marker,  // < unused            , unused               >
 	func_start,   // < unused            , unused               >
 	func_end,     // < unused            , unused               >
 	list_start,   // TODO 
 	list_end,     // TODO
 	block_start,  // < unused            , unused               >
 	block_end,    // < unused            , unused               >
-	symbol,       // < const char* : name, size_t name_length   >
 
 	/* not lexable, only appear on stack. */
 
 	native_func,  // < Symbol* : sym     , unused               >
 	block_marker, // < int     : index   , unused               >
-	nil,          // < unused            , unused               >
 
 	num_tokens
 };
 
+
 struct Token {
 	Token(TokenType t, const void* d, size_t s = 0)
-	   	: type(t), data(reinterpret_cast<intptr_t>(d)), size(s){}
+	   	: type(t), data(reinterpret_cast<uintptr_t>(d)), size(s){}
 
 	Token(TokenType t, const uintptr_t d, size_t s = 0) 
 		: type(t), data(d), size(s){}
@@ -48,9 +49,18 @@ struct Token {
 		return type != TokenType::invalid;
 	}
 
+	bool operator==(const TokenType& type) const {
+		return type == this->type;
+	}
+
 	template<class T>
 	T get() {
 		return reinterpret_cast<T&>(data);
+	}
+	
+	template<class T>
+	T get() const {
+		return reinterpret_cast<const T&>(data);
 	}
 
 	const char* debug_name_short() const {
@@ -58,6 +68,8 @@ struct Token {
 			case TokenType::id:           return "id ";
 			case TokenType::number:       return "num";
 			case TokenType::string:       return "str";
+			case TokenType::symbol:       return "sym";
+			case TokenType::args_marker:  return "-> ";
 			case TokenType::func_start:   return " ( ";
 			case TokenType::func_end:     return " ) ";
 			case TokenType::list_start:   return " [ ";
@@ -76,6 +88,8 @@ struct Token {
 			case TokenType::id:           return "id";
 			case TokenType::number:       return "number";
 			case TokenType::string:       return "string";
+			case TokenType::symbol:       return "symbol";
+			case TokenType::args_marker:  return "args_marker";
 			case TokenType::func_start:   return "func_start";
 			case TokenType::func_end:     return "func_end";
 			case TokenType::list_start:   return "list_start";
@@ -92,19 +106,19 @@ struct Token {
 	void debug_print() const {
 		switch(type){
 			case TokenType::id: {
-				printf("id: '%.*s'\n", (int)size, (const char*)data);
+				fprintf(stderr, "id: '%.*s'\n", (int)size, (const char*)data);
 				break;
 			}
 			case TokenType::number: {
-				printf("num: '%d'\n", (int)data);
+				fprintf(stderr, "num: '%d'\n", (int)data);
 				break;
 			}
 			case TokenType::string: {
-				printf("str: '%.*s'\n", (int)size, (const char*)data);
+				fprintf(stderr, "str: '%.*s'\n", (int)size, (const char*)data);
 				break;
 			}
 			default:
-				puts(debug_name());
+				fprintf(stderr, "%s\n", debug_name());
 				break;
 		}
 	}

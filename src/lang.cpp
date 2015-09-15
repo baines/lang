@@ -39,48 +39,75 @@ static void run_stack_push(TokenList& tokens, Stack& stack, SymbolTable& syms){
 	stack.push(tokens.current());
 }
 
+static void run_resolve_id(TokenList& tokens, Stack& stack, SymbolTable& syms){
+	Token t = syms.lookup(tokens.current());
+	fprintf(
+		stderr,
+		"Lookup id %.*s -> %s\n",
+		(int)tokens.current().size,
+		tokens.current().get<const char*>(),
+		t.debug_name()
+	);
+
+	stack.push(t);
+}
+
 static void run_func_eval(TokenList& tokens, Stack& stack, SymbolTable& syms){
 	//TODO: ArgStack adaptor for stack, less copying needed.
 	fprintf(stderr, "evaluating func [%s]\n", tokens.current().debug_name());
 
-	TokenType cur_type = tokens.current().type, match_type = TokenType::invalid;
+	TokenType cur_type = tokens.current().type,
+	          end_type = (cur_type == TokenType::func_end)
+	           	       ? TokenType::func_start
+	                   : (cur_type == TokenType::block_end)
+	                   ? TokenType::block_start
+	                   : TokenType::invalid;
 
-	if(cur_type == TokenType::func_end){
-		match_type = TokenType::func_start;
-	} else
-	if(cur_type == TokenType::block_end){
-		match_type = TokenType::block_start;
-	}
-	assert(match_type != TokenType::invalid);
+	assert(end_type != TokenType::invalid);
 	assert(!stack.empty());
-
-	//TODO: resolve identifiers in arguments before calling the func.
-	//      will require Symbol to embed a Token as well as std::function
 	
 	Stack sub_stack;
-
 	Token t;
-	while(t = stack.pop(), t.type != match_type){
+
+	while(t = stack.pop(), t.type != end_type){
 		sub_stack.push(t);
 	}
 
 	//TODO: allow evaluation of all types. Use identity function for numbers, strings etc.
-	Token eval_token;
+	Token eval_token = sub_stack.pop();
 
-	//XXX: when id lookup is done, this will be TokenType::native_func instead of id.
-	if((eval_token = sub_stack.try_pop(TokenType::id))){
-		Symbol* callee = syms.lookup(eval_token.get<const char*>(), eval_token.size);
-		assert(callee);
-		fprintf(stderr, "calling native func: [%.*s]\n", (int)eval_token.size, eval_token.get<const char*>());
-		callee->call(sub_stack);
-	} else
-	if((eval_token = sub_stack.try_pop(TokenType::block_marker))){
-		sub_stack.push(TokenType::block_start); //FIXME
-		size_t start = eval_token.get<size_t>(), end = eval_token.size;
-		TokenList sub_tokens(tokens, start, end);
-		fprintf(stderr, "------ running block ------\n");
-		run(sub_tokens, sub_stack, syms);
-		fprintf(stderr, "------ end of block ------\n");
+	switch(eval_token.type){
+		case TokenType::native_func: {
+			auto* fn_ptr = eval_token.get<native_fn*>();
+			
+			fprintf(
+				stderr,
+				"calling native func\n"
+			);
+
+			(*fn_ptr)(sub_stack);
+
+			break;
+		}
+		case TokenType::block_marker: {
+			sub_stack.push(TokenType::block_start);
+			size_t start = eval_token.get<size_t>(), end = eval_token.size;
+			TokenList sub_tokens(tokens, start, end);
+
+			syms.push_scope();
+			
+			fprintf(stderr, "------ running block ------\n");
+			run(sub_tokens, sub_stack, syms);
+			fprintf(stderr, "------ end of block ------\n");
+
+			syms.pop_scope();
+
+			break;
+		}
+		default: {
+			sub_stack.push(eval_token);
+			break;
+		}
 	}
 
 	stack.append(sub_stack);
@@ -100,6 +127,8 @@ static void run_block_start(TokenList& tokens, Stack& stack, SymbolTable& syms){
 		   	--curly_count;
 		}
 	}
+
+	//TODO: assert this during parsing, so it doesn't have to be done during execution
 	assert(curly_count == 0);
 
 	// save the location of the start + end of this block in a block_marker token.
@@ -107,18 +136,45 @@ static void run_block_start(TokenList& tokens, Stack& stack, SymbolTable& syms){
 	stack.push(TokenType::block_marker, block_start_ip, tokens.ip + 1);
 }
 
+static void run_bind_args(TokenList& tokens, Stack& stack, SymbolTable& syms){
+	Token t;
+
+	while((t = stack.try_pop(TokenType::symbol))){
+		
+		Token binding = stack.pop_under(TokenType::block_start);
+
+		fprintf(
+			stderr,
+			"Adding arg %.*s -> %s\n",
+			(int)t.size, t.get<const char*>(),
+			binding.debug_name()
+		);
+
+		syms.add_token(t, binding);
+	}
+
+	puts("done binding args:");
+	for(auto& t : stack){
+		t.debug_print();
+	}
+}
+
 static void (*fn_table[])(TokenList& tokens, Stack& stack, SymbolTable& syms) = {
 	run_assert,      // invalid
-	run_stack_push,  // id
+	run_resolve_id,  // id
 	run_stack_push,  // number
 	run_stack_push,  // string
+	run_stack_push,  // symbol
+	run_bind_args,   // args_marker
 	run_stack_push,  // func_start
 	run_func_eval,   // func_end
 	run_assert,      // list_start
 	run_assert,      // list_end
 	run_block_start, // block_start
 	run_func_eval,   // block_end
-	run_assert       // native_func
+	run_assert,      // native_func
+	run_assert,      // block_marker
+	run_assert       // num_tokens
 };
 
 static void run(TokenList& tokens, Stack& stack, SymbolTable& syms){
