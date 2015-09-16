@@ -1,6 +1,6 @@
 #include "el3.h"
-#include <readline/readline.h>
-#include <readline/history.h>
+#include <editline/readline.h>
+#include <editline/history.h>
 
 int main(int argc, char** argv){
 
