@@ -52,7 +52,8 @@ namespace el3 {
 			syms.erase(
 				std::remove_if(syms.begin(), syms.end(), [&](const Entry& e){
 					return e.frame_num > frame_num;
-				})
+				}),
+				syms.end()
 			);
 		}
 
