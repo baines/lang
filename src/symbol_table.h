@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstring>
 #include <functional>
+#include "common.h"
 #include "tokens.h"
 #include "altlib/alt.h"
 
@@ -11,13 +12,11 @@
 
 namespace el3 {
 
-	using native_fn = std::function<void(Stack&)>;
-	
 	struct SymbolTable {
 
 		SymbolTable() : syms(), frame_num(0){}
 
-		void add_native_func(const alt::StrRef& name, const native_fn& func){
+		void add_native_func(const alt::StrRef& name, const NativeFunc& func){
 			assert(frame_num == 0 && "Native funcs should be added before running a script.");
 			syms.emplace_back(name, Token{TokenType::native_func, &func}, frame_num);
 		}

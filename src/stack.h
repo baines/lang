@@ -58,7 +58,6 @@ namespace el3 {
 		void push(const Token& t){
 			assert(t.type != TokenType::invalid);
 			tokens.push_back(t);
-			debug_print();
 		}
 
 		void push(TokenType t, const intptr_t data, size_t sz = 0){

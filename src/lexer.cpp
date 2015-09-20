@@ -65,7 +65,7 @@ inline Token lex_string(const char*& code){
 	return Token(TokenType::string, name, code - name);
 }
 
-bool Context::lex(const char* code, std::vector<Token>& tokens){
+Status Context::lex(const char* code, std::vector<Token>& tokens){
 	const char* line_start = code;
 	size_t line_num = 0;
 
@@ -109,8 +109,10 @@ bool Context::lex(const char* code, std::vector<Token>& tokens){
 				*code
 			);
 
-			return false;
+			return Status(EL3_ERR_INVALID_TOKEN, t);
 		}
 	}
+
+	return no_error;
 }
 

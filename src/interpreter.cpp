@@ -21,7 +21,6 @@ struct TokenList {
 	}
 
 	bool next(){
-		fprintf(stderr, "ip: %zu\n", ip);
 		return ++ip < limit;
 	}
 
@@ -53,8 +52,6 @@ static void run_resolve_id(TokenList& tokens, Stack& stack, SymbolTable& syms){
 }
 
 static void run_func_eval(TokenList& tokens, Stack& stack, SymbolTable& syms){
-	//TODO: ArgStack adaptor for stack, less copying needed.
-	fprintf(stderr, "evaluating func [%s]\n", tokens.current().debug_name());
 
 	TokenType cur_type = tokens.current().type,
 	          end_type = (cur_type == TokenType::func_end)
@@ -78,14 +75,13 @@ static void run_func_eval(TokenList& tokens, Stack& stack, SymbolTable& syms){
 
 	switch(eval_token.type){
 		case TokenType::native_func: {
-			auto* fn_ptr = eval_token.get<native_fn*>();
+			auto* fn = eval_token.get<NativeFunc*>();
 			
-			fprintf(
-				stderr,
-				"calling native func\n"
-			);
+			fn->name.pass_c_str([](char* name){
+				fprintf(stderr, "Calling native func [%s]\n", name);
+			});
 
-			(*fn_ptr)(sub_stack);
+			fn->ptr(sub_stack);
 
 			break;
 		}
@@ -128,9 +124,6 @@ static void run_block_start(TokenList& tokens, Stack& stack, SymbolTable& syms){
 		}
 	}
 
-	//TODO: assert this during parsing, so it doesn't have to be done during execution
-	assert(curly_count == 0);
-
 	// save the location of the start + end of this block in a block_marker token.
 	// when it is evaluated, all the skipped tokens inside will be evaluated.
 	stack.push(TokenType::block_marker, block_start_ip, tokens.ip + 1);
@@ -145,7 +138,7 @@ static void run_bind_args(TokenList& tokens, Stack& stack, SymbolTable& syms){
 
 		fprintf(
 			stderr,
-			"Adding arg %.*s -> %s\n",
+			"Binding arg %.*s -> %s\n",
 			(int)t.size, t.get<const char*>(),
 			binding.debug_name()
 		);
@@ -153,10 +146,6 @@ static void run_bind_args(TokenList& tokens, Stack& stack, SymbolTable& syms){
 		syms.add_token(t, binding);
 	}
 
-	puts("done binding args:");
-	for(auto& t : stack){
-		t.debug_print();
-	}
 }
 
 static void (*fn_table[])(TokenList& tokens, Stack& stack, SymbolTable& syms) = {
@@ -184,9 +173,12 @@ static void run(TokenList& tokens, Stack& stack, SymbolTable& syms){
 	} while(tokens.next());
 }
 
-void Context::execute(vector<Token>& token_vec){
+Status Context::execute(const vector<Token>& token_vec){
 	TokenList tokens(token_vec);
 	run(tokens, this->stack, this->sym_tab);
+
+	//TODO: report runtime errors
+	return no_error;
 }
 
 void Context::clear_stack(){
@@ -195,16 +187,28 @@ void Context::clear_stack(){
 
 void Context::run_script(const char* script){
 
+	Status status;
 	std::vector<Token> tokens;
-	lex(script, tokens);
 
-	for(auto& t : tokens){
-		t.debug_print();
+	if(!(status = lex(script, tokens))){
+		status.print();
+		return;
 	}
 
-	//TODO: simple parsing before executing to make sure brackets are well formed etc.
+	/*
+	for(auto& t : tokens){
+		t.debug_print();
+	}*/
 
-	execute(tokens);
+	if(!(status = parse(tokens))){
+		status.print();
+		return;
+	}
+
+	if(!(status = execute(tokens))){
+		status.print();
+		return;
+	}
 
 	puts("\nRESULT:");
 
