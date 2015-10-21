@@ -10,7 +10,7 @@ namespace el3 {
 	struct Stack {
 
 		Token pop() {
-			if(tokens.empty()) return TokenType::invalid;
+			if(tokens.empty()) return TKN_INVALID;
 
 			Token t = tokens.back();
 			tokens.pop_back();
@@ -18,14 +18,14 @@ namespace el3 {
 		}
 
 		Token try_pop(TokenType type){
-			if(tokens.empty()) return TokenType::invalid;
+			if(tokens.empty()) return TKN_INVALID;
 
 			Token t = tokens.back();
 			if(t.type == type){
 				tokens.pop_back();
 				return t;
 			} else {
-				return TokenType::invalid;
+				return TKN_INVALID;
 			}
 		}
 
@@ -33,7 +33,7 @@ namespace el3 {
 			auto it = std::find(tokens.rbegin(), tokens.rend(), type);
 
 			if(it == tokens.rend() || ++it == tokens.rend()){
-				return TokenType::invalid;
+				return TKN_INVALID;
 			} else {
 				Token t = *it;
 				tokens.erase(it.base()-1);
@@ -50,22 +50,20 @@ namespace el3 {
 		void debug_print() const {
 			fprintf(stderr, "%p: [", this);
 			for(auto& t : tokens){
-				fprintf(stderr, "%s, ", t.debug_name_short());
+				fprintf(stderr, "%s, ", token_name(t));
 			}
 			fprintf(stderr, "]\n");
 		}
 
 		void push(const Token& t){
-			assert(t.type != TokenType::invalid);
+			assert(t.type != TKN_INVALID);
 			tokens.push_back(t);
 		}
 
-		void push(TokenType t, const intptr_t data, size_t sz = 0){
-			push(Token(t, data, sz));
-		}
-		
-		void push(TokenType t, const void* data, size_t sz = 0){
-			push(Token(t, data, sz));
+		template<class T, class... Args>
+		void push(Args&&... args){
+			T t = { static_cast<Args>(args)... };
+			push(Token(t));
 		}
 
 		bool empty() const {

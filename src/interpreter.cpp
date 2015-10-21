@@ -7,11 +7,11 @@
 using namespace el3;
 using std::vector;
 
-struct TokenList {
-	explicit TokenList(const vector<Token>& t)
+struct TokenStream {
+	explicit TokenStream(const vector<Token>& t)
 		: tokens(t), ip(0), limit(t.size()){}
 
-	TokenList(const TokenList& other, size_t new_ip, size_t lim)
+	TokenStream(const TokenStream& other, size_t new_ip, size_t lim)
 		: tokens(other.tokens), ip(new_ip), limit(lim){}
 
 	const vector<Token>& tokens;
@@ -24,43 +24,43 @@ struct TokenList {
 		return ++ip < limit;
 	}
 
-	size_t ip, limit;
+	uint32_t ip, limit;
 };
 
-static void run(TokenList& tokens, Stack& stack, SymbolTable& syms);
+static void run(TokenStream& tokens, Stack& stack, SymbolTable& syms);
 
-static void run_assert(TokenList& tokens, Stack& stack, SymbolTable& syms){
-	fprintf(stderr, "Got invalid token: %s.\n", tokens.current().debug_name());
+static void run_assert(TokenStream& tokens, Stack& stack, SymbolTable& syms){
+	fprintf(stderr, "Got invalid token: %s.\n", token_name_full(tokens.current()));
 	abort();
 }
 
-static void run_stack_push(TokenList& tokens, Stack& stack, SymbolTable& syms){
+static void run_stack_push(TokenStream& tokens, Stack& stack, SymbolTable& syms){
 	stack.push(tokens.current());
 }
 
-static void run_resolve_id(TokenList& tokens, Stack& stack, SymbolTable& syms){
+static void run_resolve_id(TokenStream& tokens, Stack& stack, SymbolTable& syms){
 	Token t = syms.lookup(tokens.current());
 	fprintf(
 		stderr,
 		"Lookup id %.*s -> %s\n",
-		(int)tokens.current().size,
-		tokens.current().get<const char*>(),
-		t.debug_name()
+		tokens.current().id.len,
+		tokens.current().id.str,
+		token_name_full(t)
 	);
 
 	stack.push(t);
 }
 
-static void run_func_eval(TokenList& tokens, Stack& stack, SymbolTable& syms){
+static void run_func_eval(TokenStream& tokens, Stack& stack, SymbolTable& syms){
 
 	TokenType cur_type = tokens.current().type,
-	          end_type = (cur_type == TokenType::func_end)
-	           	       ? TokenType::func_start
-	                   : (cur_type == TokenType::block_end)
-	                   ? TokenType::block_start
-	                   : TokenType::invalid;
+	          end_type = (cur_type == TKN_FUNC_END)
+	           	       ? TKN_FUNC_START
+	                   : (cur_type == TKN_BLOCK_END)
+	                   ? TKN_BLOCK_START
+	                   : TKN_INVALID;
 
-	assert(end_type != TokenType::invalid);
+	assert(end_type != TKN_INVALID);
 	assert(!stack.empty());
 	
 	Stack sub_stack;
@@ -70,25 +70,22 @@ static void run_func_eval(TokenList& tokens, Stack& stack, SymbolTable& syms){
 		sub_stack.push(t);
 	}
 
-	//TODO: allow evaluation of all types. Use identity function for numbers, strings etc.
 	Token eval_token = sub_stack.pop();
 
-	switch(eval_token.type){
-		case TokenType::native_func: {
-			auto* fn = eval_token.get<NativeFunc*>();
+	if(eval_token.type == TKN_FUNC){
+		if(eval_token.func.type == FN_NATIVE){
+			auto* fn = eval_token.func.native;
 			
 			fn->name.pass_c_str([](char* name){
 				fprintf(stderr, "Calling native func [%s]\n", name);
 			});
 
 			fn->ptr(sub_stack);
-
-			break;
 		}
-		case TokenType::block_marker: {
-			sub_stack.push(TokenType::block_start);
-			size_t start = eval_token.get<size_t>(), end = eval_token.size;
-			TokenList sub_tokens(tokens, start, end);
+		if(eval_token.func.type == FN_BLOCK){
+			sub_stack.push(TKN_BLOCK_START);
+			size_t start = eval_token.func.block_start, end = eval_token.func.block_end;
+			TokenStream sub_tokens(tokens, start, end);
 
 			syms.push_scope();
 			
@@ -97,50 +94,46 @@ static void run_func_eval(TokenList& tokens, Stack& stack, SymbolTable& syms){
 			fprintf(stderr, "------ end of block ------\n");
 
 			syms.pop_scope();
-
-			break;
 		}
-		default: {
-			sub_stack.push(eval_token);
-			break;
-		}
+	} else {
+		sub_stack.push(eval_token);
 	}
 
 	stack.append(sub_stack);
 }
 
-static void run_block_start(TokenList& tokens, Stack& stack, SymbolTable& syms){
-	size_t block_start_ip = tokens.ip + 1;
+static void run_block_start(TokenStream& tokens, Stack& stack, SymbolTable& syms){
+	uint32_t block_start_ip = tokens.ip + 1;
 
 	// skip all tokens until matching block_end token, they shouldn't be evaluated now.
 	int curly_count = 1;
 	while(curly_count > 0 && tokens.next()){
 		TokenType cur_type = tokens.current().type;
-		if(cur_type == TokenType::block_start){
+		if(cur_type == TKN_BLOCK_START){
 			++curly_count;
 		} else 
-		if(cur_type == TokenType::block_end){
+		if(cur_type == TKN_BLOCK_END){
 		   	--curly_count;
 		}
 	}
 
 	// save the location of the start + end of this block in a block_marker token.
 	// when it is evaluated, all the skipped tokens inside will be evaluated.
-	stack.push(TokenType::block_marker, block_start_ip, tokens.ip + 1);
+	stack.push<TokenFunc>(FN_BLOCK, block_start_ip, tokens.ip + 1u);
 }
 
-static void run_bind_args(TokenList& tokens, Stack& stack, SymbolTable& syms){
+static void run_bind_args(TokenStream& tokens, Stack& stack, SymbolTable& syms){
 	Token t;
 
-	while((t = stack.try_pop(TokenType::symbol))){
+	while((t = stack.try_pop(TKN_SYMBOL))){
 		
-		Token binding = stack.pop_under(TokenType::block_start);
+		Token binding = stack.pop_under(TKN_BLOCK_START);
 
 		fprintf(
 			stderr,
 			"Binding arg %.*s -> %s\n",
-			(int)t.size, t.get<const char*>(),
-			binding.debug_name()
+			t.sym.len, t.sym.str,
+			token_name_full(binding)
 		);
 
 		syms.add_token(t, binding);
@@ -148,7 +141,7 @@ static void run_bind_args(TokenList& tokens, Stack& stack, SymbolTable& syms){
 
 }
 
-static void (*fn_table[])(TokenList& tokens, Stack& stack, SymbolTable& syms) = {
+static void (*fn_table[])(TokenStream& tokens, Stack& stack, SymbolTable& syms) = {
 	run_assert,      // invalid
 	run_resolve_id,  // id
 	run_stack_push,  // number
@@ -166,7 +159,7 @@ static void (*fn_table[])(TokenList& tokens, Stack& stack, SymbolTable& syms) = 
 	run_assert       // num_tokens
 };
 
-static void run(TokenList& tokens, Stack& stack, SymbolTable& syms){
+static void run(TokenStream& tokens, Stack& stack, SymbolTable& syms){
 	do {
 		size_t index = static_cast<size_t>(tokens.current().type);
 		fn_table[index](tokens, stack, syms);
@@ -174,7 +167,7 @@ static void run(TokenList& tokens, Stack& stack, SymbolTable& syms){
 }
 
 Status Context::execute(const vector<Token>& token_vec){
-	TokenList tokens(token_vec);
+	TokenStream tokens(token_vec);
 	run(tokens, this->stack, this->sym_tab);
 
 	//TODO: report runtime errors
@@ -213,7 +206,7 @@ void Context::run_script(const char* script){
 	puts("\nRESULT:");
 
 	for(auto& t : stack){
-		t.debug_print();
+		token_print(t);
 	}
 
 }

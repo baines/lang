@@ -12,7 +12,7 @@ inline Token lex_number(const char*& code){
 		if(*(code + 1) <= '0' || *(code + 1) >= '9') break;
 	}
 	
-	return Token(TokenType::number, result);
+	return TokenNumber{result};
 }
 
 constexpr alt::StrRef reserved_chars("()[]{}:\'");
@@ -25,7 +25,7 @@ inline Token lex_identifier(const char*& code){
 		++code;
 	}
 	
-	return Token(TokenType::id, name, (code - name) + 1);
+	return TokenIdentifier{name, uint32_t(code - name) + 1u};
 }
 
 inline Token lex_dash(const char*& code){
@@ -33,10 +33,10 @@ inline Token lex_dash(const char*& code){
 
 	if(next == '>'){
 		++code;
-		return TokenType::args_marker;
+		return TKN_ARGS_MARKER;
 	} else if(next >= '0' && next <= '9'){
 		Token t = lex_number(++code);
-		t.data = uintptr_t(t.get<int>() * -1);
+		t.num.num *= -1;
 		return t;
 	} else {
 		return lex_identifier(code);
@@ -46,7 +46,7 @@ inline Token lex_dash(const char*& code){
 inline Token lex_symbol(const char*& code){
 	Token t = lex_identifier(++code);
 	if(t){
-		t.type = TokenType::symbol;
+		t.type = TKN_SYMBOL;
 	}
 	return t;
 }
@@ -62,7 +62,7 @@ inline Token lex_string(const char*& code){
 		if(*code == '\'') break;
 	}
 
-	return Token(TokenType::string, name, code - name);
+	return TokenString{ name, uint32_t(code - name) };
 }
 
 Status Context::lex(const char* code, std::vector<Token>& tokens){
@@ -80,17 +80,17 @@ Status Context::lex(const char* code, std::vector<Token>& tokens){
 			continue;
 		}
 
-		Token t(TokenType::invalid);
+		Token t(TKN_INVALID);
 				
 		if(*code >= '0' && *code <= '9'){
 			t = lex_number(code);
 		} else switch(*code){
-			case '{':  t = TokenType::block_start; break;
-			case '}':  t = TokenType::block_end;   break;
-			case '(':  t = TokenType::func_start;  break;
-			case ')':  t = TokenType::func_end;    break;
-			case '[':  t = TokenType::list_start;  break;
-			case ']':  t = TokenType::list_end;    break;
+			case '{':  t = TKN_BLOCK_START; break;
+			case '}':  t = TKN_BLOCK_END;   break;
+			case '(':  t = TKN_FUNC_START;  break;
+			case ')':  t = TKN_FUNC_END;    break;
+			case '[':  t = TKN_LIST_START;  break;
+			case ']':  t = TKN_LIST_END;    break;
 			case '-':  t = lex_dash(code);         break;
 			case ':':  t = lex_symbol(code);       break;
 			case '\'': t = lex_string(code);       break;

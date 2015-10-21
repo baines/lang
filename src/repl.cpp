@@ -10,13 +10,13 @@ int main(int argc, char** argv){
 		int result = 0;
 
 		while(!stack.empty()){
-			el3::Token t = stack.try_pop(el3::TokenType::number);
+			el3::Token t = stack.try_pop(el3::TKN_NUMBER);
 			assert(t);
 			
-			result += t.get<int>();
+			result += t.num.num;
 		}
 
-		stack.push(el3::TokenType::number, result);
+		stack.push<el3::TokenNumber>(result);
 	});
 
 	read_history("repl_history.txt");

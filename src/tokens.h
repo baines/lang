@@ -6,127 +6,112 @@
 
 namespace el3 {
 
-enum class TokenType : uint_fast8_t {
+struct NativeFunc;
 
-	/* lexable tokens */
+enum TokenType : uint_fast8_t {
+/* lexable tokens */
+	TKN_INVALID,
+	TKN_ID,
+	TKN_NUMBER,
+	TKN_STRING,
+	TKN_SYMBOL,
+	TKN_ARGS_MARKER,
+	TKN_FUNC_START,
+	TKN_FUNC_END,
+	TKN_LIST_START,
+	TKN_LIST_END,
+	TKN_BLOCK_START,
+	TKN_BLOCK_END,
 
-	invalid,      // < unused            , unused               >
-	id,           // < const char* : name, size_t : name_length >
-	number,       // < int         : val , unused               >
-	string,       // < const char* : name, size_t : name_length >
-	symbol,       // < const char* : name, size_t name_length   >
-	args_marker,  // < unused            , unused               >
-	func_start,   // < unused            , unused               >
-	func_end,     // < unused            , unused               >
-	list_start,   // TODO 
-	list_end,     // TODO
-	block_start,  // < unused            , unused               >
-	block_end,    // < unused            , unused               >
+/* not lexable, only appear on stack. */
+	TKN_FUNC,
+	TKN_LIST,
+	TKN_STACK_BOUNDARY, // unnecessary if StackFrame takes ptr to mem start?
 
-	/* not lexable, only appear on stack. */
-
-	native_func,  // < Symbol* : sym     , unused               >
-	block_marker, // < int     : index   , unused               >
-
-	num_tokens
+	NUM_TOKENS
 };
 
+struct TokenNumber { int num; };
+struct TokenString { const char* str; uint32_t len; };
+struct TokenSymbol { const char* str; uint32_t len; };
+struct TokenIdentifier { const char* str; uint32_t len; };
+
+enum FuncType : uint_fast8_t { FN_NIL, FN_NATIVE, FN_BLOCK };
+enum ListType : uint_fast8_t { LIST_NIL, LIST_NATIVE, LIST_STACK };
+
+struct TokenFunc {
+	FuncType type;
+
+	uint32_t block_start, block_end;
+	NativeFunc* native;
+
+};
+
+struct TokenList {
+	ListType type;	
+	uint32_t stack_start, stack_end;
+	//NativeList* start_native;
+};
 
 struct Token {
-	Token(TokenType t, const void* d, size_t s = 0)
-	   	: type(t), data(reinterpret_cast<uintptr_t>(d)), size(s){}
-
-	Token(TokenType t, const uintptr_t d, size_t s = 0) 
-		: type(t), data(d), size(s){}
-
-	Token(TokenType t) 
-		: Token(t, nullptr, 0){}
-
-	Token() 
-		: Token(TokenType::invalid, nullptr, 0){}
-
-	operator bool() const {
-		return type != TokenType::invalid;
-	}
-
-	bool operator==(const TokenType& type) const {
-		return type == this->type;
-	}
-
-	template<class T>
-	T get() {
-		return reinterpret_cast<T&>(data);
-	}
-	
-	template<class T>
-	T get() const {
-		return reinterpret_cast<const T&>(data);
-	}
-
-	const char* debug_name_short() const {
-		switch(type){
-			case TokenType::id:           return "id ";
-			case TokenType::number:       return "num";
-			case TokenType::string:       return "str";
-			case TokenType::symbol:       return "sym";
-			case TokenType::args_marker:  return "-> ";
-			case TokenType::func_start:   return " ( ";
-			case TokenType::func_end:     return " ) ";
-			case TokenType::list_start:   return " [ ";
-			case TokenType::list_end:     return " ] ";
-			case TokenType::block_start:  return " { ";
-			case TokenType::block_end:    return " } ";
-			case TokenType::native_func:  return "fn ";
-			case TokenType::block_marker: return "bm ";
-			case TokenType::invalid:      return "inv";
-			default:                      return "???";
-		}
-	}
-
-	const char* debug_name() const {
-		switch(type){
-			case TokenType::id:           return "id";
-			case TokenType::number:       return "number";
-			case TokenType::string:       return "string";
-			case TokenType::symbol:       return "symbol";
-			case TokenType::args_marker:  return "args_marker";
-			case TokenType::func_start:   return "func_start";
-			case TokenType::func_end:     return "func_end";
-			case TokenType::list_start:   return "list_start";
-			case TokenType::list_end:     return "list_end";
-			case TokenType::block_start:  return "block_start";
-			case TokenType::block_end:    return "block_end";
-			case TokenType::native_func:  return "native_func";
-			case TokenType::block_marker: return "block_marker";
-			case TokenType::invalid:      return "invalid";
-			default:                      return "unknown";
-		}
-	}
-
-	void debug_print() const {
-		switch(type){
-			case TokenType::id: {
-				fprintf(stderr, "id: '%.*s'\n", (int)size, (const char*)data);
-				break;
-			}
-			case TokenType::number: {
-				fprintf(stderr, "num: '%d'\n", (int)data);
-				break;
-			}
-			case TokenType::string: {
-				fprintf(stderr, "str: '%.*s'\n", (int)size, (const char*)data);
-				break;
-			}
-			default:
-				fprintf(stderr, "%s\n", debug_name());
-				break;
-		}
-	}
-
 	TokenType type;
-	uintptr_t data;
-	size_t size;
+
+	union {
+		TokenIdentifier id;
+		TokenString     str;
+		TokenSymbol     sym;
+		TokenNumber     num;
+		TokenFunc       func;
+	};
+
+	uint32_t source_index;
+
+	Token() = default;
+	Token(TokenType t) : type(t){}
+	Token(const TokenIdentifier& t) : type(TKN_ID), id(t){}
+	Token(const TokenString& t) : type(TKN_STRING), str(t){}
+	Token(const TokenSymbol& t) : type(TKN_SYMBOL), sym(t){}
+	Token(const TokenNumber& t) : type(TKN_NUMBER), num(t){}
+	Token(const TokenFunc& t) : type(TKN_FUNC), func(t){}
+	
+	bool operator==(TokenType t) const { return type == t; }
+	operator bool(){ return type != TKN_INVALID; }
 };
+
+static const char* token_names[][2] = {
+	{ "INV", "INVALID" },
+	{ "ID ", "ID" },
+	{ "NUM", "NUMBER" },
+	{ "STR", "STRING" },
+	{ "SYM", "SYMBOL" },
+	{ "-> ", "ARGS_MARKER" },
+	{ " ( ", "FUNC_START" },
+	{ " ) ", "FUNC_END" },
+	{ " [ ", "LIST_START" },
+	{ " ] ", "LIST_END" },
+	{ " { ", "BLOCK_START" },
+	{ " } ", "BLOCK_END"},
+	{ "FN ", "NATIVE_FUNC" },
+	{ "BM ", "BLOCK_MARKER" },
+	{ "INV", "INVALID" },
+	{ "???", "UNKNOWN" },
+};
+
+inline const char* token_name(Token t){ return token_names[t.type][0]; }
+inline const char* token_name_full(Token t){ return token_names[t.type][1]; }
+
+inline void token_print(Token t){
+	fprintf(stderr, "[%s", token_name_full(t));
+
+	if(t.type == TKN_NUMBER){
+		fprintf(stderr, ": %d", t.num.num);		
+	}
+	if(t.type == TKN_STRING || t.type == TKN_ID || t.type == TKN_SYMBOL){
+		fprintf(stderr, ": %.*s", t.str.len, t.str.str);
+	}
+
+	fprintf(stderr, "]\n");
+}
 
 }
 

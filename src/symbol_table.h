@@ -16,30 +16,30 @@ namespace el3 {
 
 		SymbolTable() : syms(), frame_num(0){}
 
-		void add_native_func(const alt::StrRef& name, const NativeFunc& func){
+		void add_native_func(const alt::StrRef& name, NativeFunc& func){
 			assert(frame_num == 0 && "Native funcs should be added before running a script.");
-			syms.emplace_back(name, Token{TokenType::native_func, &func}, frame_num);
+			syms.emplace_back(name, TokenFunc{FN_NATIVE, 0, 0, &func}, frame_num);
 		}
 
 		void add_token(Token id, Token val){
-			if(id.type != TokenType::id && id.type != TokenType::symbol){
+			if(id.type != TKN_ID && id.type != TKN_SYMBOL){
 				return;
 			}
 
-			const alt::StrRef name(id.get<const char*>(), id.size);
+			const alt::StrRef name(id.id.str, id.id.len);
 			syms.emplace_back(name, val, frame_num);
 		}
 
 		Token lookup(Token id){
-			if(id.type != TokenType::id && id.type != TokenType::symbol){
-				return TokenType::invalid;
+			if(id.type != TKN_ID && id.type != TKN_SYMBOL){
+				return TKN_INVALID;
 			}
 
-			const alt::StrRef name(id.get<const char*>(), id.size);
+			const alt::StrRef name(id.id.str, id.id.len);
 			auto it = std::find(syms.rbegin(), syms.rend(), name);
 
 			return it == syms.rend()
-			       ? TokenType::invalid
+			       ? TKN_INVALID
 			       : it->token;
 		}
 

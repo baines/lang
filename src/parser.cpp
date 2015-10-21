@@ -4,13 +4,13 @@ using namespace el3;
 
 static TokenType matching_bracket(TokenType t){
 	switch(t){
-		case TokenType::func_start:  return TokenType::func_end;
-		case TokenType::block_start: return TokenType::block_end;
-		case TokenType::list_start:  return TokenType::list_end;
-		case TokenType::func_end:    return TokenType::func_start;
-		case TokenType::block_end:   return TokenType::block_start;
-		case TokenType::list_end:    return TokenType::list_start;
-		default:                     return TokenType::invalid;	
+		case TKN_FUNC_START:  return TKN_FUNC_END;
+		case TKN_BLOCK_START: return TKN_BLOCK_END;
+		case TKN_LIST_START:  return TKN_LIST_END;
+		case TKN_FUNC_END:    return TKN_FUNC_START;
+		case TKN_BLOCK_END:   return TKN_BLOCK_START;
+		case TKN_LIST_END:    return TKN_LIST_START;
+		default:                     return TKN_INVALID;	
 	}
 }
 
@@ -20,13 +20,13 @@ static Status validate_args_marker(const std::vector<Token>& tokens, ssize_t ind
 
 		//NOTE: It is permissible for a block with no args to have an arg marker.
 
-		if(t.type == TokenType::block_start){
+		if(t.type == TKN_BLOCK_START){
 			return no_error;
 		}
-		if(t.type == TokenType::args_marker){
+		if(t.type == TKN_ARGS_MARKER){
 			return Status(EL3_ERR_MULTIPLE_ARG_DECL, tokens[index]);
 		}
-		if(t.type != TokenType::symbol){
+		if(t.type != TKN_SYMBOL){
 			return Status(EL3_ERR_NON_SYMBOL_ARG, tokens[i]);
 		}
 	}
@@ -43,21 +43,21 @@ Status Context::parse(const std::vector<Token>& tokens){
 		Token t = tokens[i];
 
 		switch(t.type){
-			case TokenType::func_start:
-			case TokenType::block_start:
-			case TokenType::list_start:
+			case TKN_FUNC_START:
+			case TKN_BLOCK_START:
+			case TKN_LIST_START:
 				brackets.push(t);
 				break;
-			case TokenType::func_end:
-			case TokenType::block_end:
-			case TokenType::list_end: {
+			case TKN_FUNC_END:
+			case TKN_BLOCK_END:
+			case TKN_LIST_END: {
 				Token match = brackets.pop();
 				if(match.type != matching_bracket(t.type)){
 					return Status(EL3_ERR_BRACKET_MISMATCH, t);
 				}
 				break;
 			}
-			case TokenType::args_marker: {
+			case TKN_ARGS_MARKER: {
 				auto status = validate_args_marker(tokens, i);
 				if(!status) return status;
 				break;
