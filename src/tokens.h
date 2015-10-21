@@ -62,6 +62,7 @@ struct Token {
 		TokenSymbol     sym;
 		TokenNumber     num;
 		TokenFunc       func;
+		TokenList       list;
 	};
 
 	uint32_t source_index;
@@ -73,6 +74,7 @@ struct Token {
 	Token(const TokenSymbol& t) : type(TKN_SYMBOL), sym(t){}
 	Token(const TokenNumber& t) : type(TKN_NUMBER), num(t){}
 	Token(const TokenFunc& t) : type(TKN_FUNC), func(t){}
+	Token(const TokenList& t) : type(TKN_LIST), list(t){}
 	
 	bool operator==(TokenType t) const { return type == t; }
 	operator bool(){ return type != TKN_INVALID; }
@@ -91,27 +93,16 @@ static const char* token_names[][2] = {
 	{ " ] ", "LIST_END" },
 	{ " { ", "BLOCK_START" },
 	{ " } ", "BLOCK_END"},
-	{ "FN ", "NATIVE_FUNC" },
-	{ "BM ", "BLOCK_MARKER" },
-	{ "INV", "INVALID" },
+	{ "FN ", "FUNC" },
+	{ "LST", "LIST" },
+	{ " | ", "STACK BOUNDARY" },
 	{ "???", "UNKNOWN" },
 };
 
 inline const char* token_name(Token t){ return token_names[t.type][0]; }
 inline const char* token_name_full(Token t){ return token_names[t.type][1]; }
 
-inline void token_print(Token t){
-	fprintf(stderr, "[%s", token_name_full(t));
-
-	if(t.type == TKN_NUMBER){
-		fprintf(stderr, ": %d", t.num.num);		
-	}
-	if(t.type == TKN_STRING || t.type == TKN_ID || t.type == TKN_SYMBOL){
-		fprintf(stderr, ": %.*s", t.str.len, t.str.str);
-	}
-
-	fprintf(stderr, "]\n");
-}
+void token_print(Token t);
 
 }
 
