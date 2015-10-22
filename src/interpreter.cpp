@@ -38,6 +38,10 @@ static void run_stack_push(TokenStream& tokens, Stack& stack, SymbolTable& syms)
 	stack.push(tokens.current());
 }
 
+static void run_frame_push(TokenStream& tokens, Stack& stack, SymbolTable& syms){
+	stack.frame_push();
+}
+
 static void run_resolve_id(TokenStream& tokens, Stack& stack, SymbolTable& syms){
 	Token t = syms.lookup(tokens.current());
 	fprintf(
@@ -53,24 +57,42 @@ static void run_resolve_id(TokenStream& tokens, Stack& stack, SymbolTable& syms)
 
 static void run_func_eval(TokenStream& tokens, Stack& stack, SymbolTable& syms){
 
-	TokenType cur_type = tokens.current().type,
-	          end_type = (cur_type == TKN_FUNC_END)
-	           	       ? TKN_FUNC_START
-	                   : (cur_type == TKN_BLOCK_END)
-	                   ? TKN_BLOCK_START
-	                   : TKN_INVALID;
-
-	assert(end_type != TKN_INVALID);
-	assert(!stack.empty());
-	
-	Stack sub_stack;
-	Token t;
-
-	while(t = stack.pop(), t.type != end_type){
-		sub_stack.push(t);
+	if(stack.frame_empty()){
+		stack.frame_pop();
+		return;
 	}
 
-	Token eval_token = sub_stack.pop();
+	fprintf(stderr, "Pre-args: ");
+	stack.debug_print();
+
+	auto it = stack.back_iterate();
+	stack.frame_push();
+
+	while(it.count() > 1){
+		Token t = it.next();
+		
+		fprintf(stderr, "Arg: ");
+		token_print(t);
+
+		if(t.type == TKN_LIST_END){
+			// Find matching list_start + push TokenList that points to this stack location.
+			// This should make writing native funcs easier since Lists will be a single
+			//  token, but has other complications.
+			// E.g. modifying lists will need to change the size of previous stack frames 
+			//  that contain the actual list data, which could screw up the pointers.
+			// Alternatively they could be handled in separate memory? There might also be 
+			//  issues with nested lists... Need to think more about a good implementation.
+		} else {
+			stack.push(t);
+		}
+	}
+
+	Token eval_token = it.next();
+	fprintf(stderr, "Eval: ");
+	token_print(eval_token);
+
+	fprintf(stderr, "Before eval: ");
+	stack.debug_print();
 
 	if(eval_token.type == TKN_FUNC){
 		if(eval_token.func.type == FN_NATIVE){
@@ -80,26 +102,30 @@ static void run_func_eval(TokenStream& tokens, Stack& stack, SymbolTable& syms){
 				fprintf(stderr, "Calling native func [%s]\n", name);
 			});
 
-			fn->ptr(sub_stack);
+			fn->ptr(stack);
 		}
 		if(eval_token.func.type == FN_BLOCK){
-			sub_stack.push(TKN_BLOCK_START);
 			size_t start = eval_token.func.block_start, end = eval_token.func.block_end;
 			TokenStream sub_tokens(tokens, start, end);
 
+			stack.frame_push();
 			syms.push_scope();
 			
 			fprintf(stderr, "------ running block ------\n");
-			run(sub_tokens, sub_stack, syms);
+			run(sub_tokens, stack, syms);
 			fprintf(stderr, "------ end of block ------\n");
 
 			syms.pop_scope();
 		}
 	} else {
-		sub_stack.push(eval_token);
+		stack.push(eval_token);
 	}
 
-	stack.append(sub_stack);
+	stack.frame_erase();
+	stack.frame_pop();
+
+	fprintf(stderr, "After eval: ");
+	stack.debug_print();
 }
 
 static void run_block_start(TokenStream& tokens, Stack& stack, SymbolTable& syms){
@@ -127,7 +153,7 @@ static void run_bind_args(TokenStream& tokens, Stack& stack, SymbolTable& syms){
 
 	while((t = stack.try_pop(TKN_SYMBOL))){
 		
-		Token binding = stack.pop_under(TKN_BLOCK_START);
+		Token binding = stack.pop_under(TKN_STACK_FRAME);
 
 		fprintf(
 			stderr,
@@ -148,14 +174,17 @@ static void (*fn_table[])(TokenStream& tokens, Stack& stack, SymbolTable& syms) 
 	run_stack_push,  // string
 	run_stack_push,  // symbol
 	run_bind_args,   // args_marker
-	run_stack_push,  // func_start
+	run_frame_push,  // func_start
 	run_func_eval,   // func_end
 	run_assert,      // list_start
 	run_assert,      // list_end
 	run_block_start, // block_start
 	run_func_eval,   // block_end
-	run_assert,      // native_func
-	run_assert,      // block_marker
+
+// should never appear in token stream:
+	run_assert,      // func
+	run_assert,      // list
+	run_assert,      // stack_frame
 	run_assert       // num_tokens
 };
 

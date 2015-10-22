@@ -7,10 +7,45 @@
 
 namespace el3 {
 
+	struct StackBackIter {
+	
+		StackBackIter(std::vector<Token>& tokens, size_t limit)
+		: tokens(tokens)
+		, cursor(tokens.size() - 1)
+		, limit(limit){
+
+		}
+
+		size_t count() const {
+			return cursor - limit;
+		}
+
+		Token next(){
+			if(count()){
+				return tokens[cursor--];
+			} else {
+				return TKN_INVALID;
+			}
+		}
+
+		size_t cursor, limit;
+		std::vector<Token>& tokens;
+	};
+
 	struct Stack {
 
+		Stack(size_t sz)
+		: tokens()
+		, frame_num(0) {
+			tokens.reserve(sz);
+		}
+
+		Stack() : Stack(256){}
+
 		Token pop() {
-			if(tokens.empty()) return TKN_INVALID;
+			if(tokens.empty() || tokens.back().type == TKN_STACK_FRAME){
+				return TKN_INVALID;
+			}
 
 			Token t = tokens.back();
 			tokens.pop_back();
@@ -18,7 +53,9 @@ namespace el3 {
 		}
 
 		Token try_pop(TokenType type){
-			if(tokens.empty()) return TKN_INVALID;
+			if(tokens.empty() || tokens.back().type == TKN_STACK_FRAME){
+				return TKN_INVALID;
+			}
 
 			Token t = tokens.back();
 			if(t.type == type){
@@ -48,9 +85,9 @@ namespace el3 {
 		}
 
 		void debug_print() const {
-			fprintf(stderr, "%p: [", this);
+			fprintf(stderr, "[");
 			for(auto& t : tokens){
-				fprintf(stderr, "%s, ", token_name(t));
+				fprintf(stderr, "%s ", token_name(t));
 			}
 			fprintf(stderr, "]\n");
 		}
@@ -66,8 +103,47 @@ namespace el3 {
 			push(Token(t));
 		}
 
-		bool empty() const {
-			return tokens.empty();
+		void frame_push(){
+			push<TokenStackFrame>(frame_num++);
+		}
+
+		void frame_pop(){
+			auto it = std::find(tokens.rbegin(), tokens.rend(), TKN_STACK_FRAME);
+
+			if(it != tokens.rend()){
+				tokens.erase(it.base() - 1);
+				frame_num--;
+			}
+		}
+
+		void frame_erase(){
+			auto i = std::find(tokens.rbegin(), tokens.rend(), TKN_STACK_FRAME);
+			if(i == tokens.rend()) return;
+
+			auto j = std::find(i + 1, tokens.rend(), TKN_STACK_FRAME);
+			if(j == tokens.rend()) return;
+
+			tokens.erase(j.base() - 1, i.base() - 1);
+
+			i = std::find(tokens.rbegin(), tokens.rend(), TKN_STACK_FRAME);
+			assert(i != tokens.rend());
+
+			i->frame.num--;
+			frame_num--;
+		}
+
+		StackBackIter back_iterate(){
+			size_t lim = 0;
+			auto it = std::find(tokens.rbegin(), tokens.rend(), TKN_STACK_FRAME);
+			if(it != tokens.rend()){
+				lim = &(*it) - tokens.data();
+			}
+
+			return StackBackIter(tokens, lim);
+		}
+
+		bool frame_empty() const {
+			return tokens.empty() || tokens.back().type == TKN_STACK_FRAME;
 		}
 
 		void clear() {
@@ -83,6 +159,7 @@ namespace el3 {
 		}
 
 		std::vector<Token> tokens;
+		size_t frame_num;
 	};
 
 }

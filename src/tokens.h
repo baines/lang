@@ -26,7 +26,7 @@ enum TokenType : uint_fast8_t {
 /* not lexable, only appear on stack. */
 	TKN_FUNC,
 	TKN_LIST,
-	TKN_STACK_BOUNDARY, // unnecessary if StackFrame takes ptr to mem start?
+	TKN_STACK_FRAME,
 
 	NUM_TOKENS
 };
@@ -35,6 +35,7 @@ struct TokenNumber { int num; };
 struct TokenString { const char* str; uint32_t len; };
 struct TokenSymbol { const char* str; uint32_t len; };
 struct TokenIdentifier { const char* str; uint32_t len; };
+struct TokenStackFrame { size_t num; };
 
 enum FuncType : uint_fast8_t { FN_NIL, FN_NATIVE, FN_BLOCK };
 enum ListType : uint_fast8_t { LIST_NIL, LIST_NATIVE, LIST_STACK };
@@ -63,6 +64,7 @@ struct Token {
 		TokenNumber     num;
 		TokenFunc       func;
 		TokenList       list;
+		TokenStackFrame frame;
 	};
 
 	uint32_t source_index;
@@ -75,6 +77,7 @@ struct Token {
 	Token(const TokenNumber& t) : type(TKN_NUMBER), num(t){}
 	Token(const TokenFunc& t) : type(TKN_FUNC), func(t){}
 	Token(const TokenList& t) : type(TKN_LIST), list(t){}
+	Token(const TokenStackFrame& t) : type(TKN_STACK_FRAME), frame(t){}
 	
 	bool operator==(TokenType t) const { return type == t; }
 	operator bool(){ return type != TKN_INVALID; }
@@ -86,16 +89,16 @@ static const char* token_names[][2] = {
 	{ "NUM", "NUMBER" },
 	{ "STR", "STRING" },
 	{ "SYM", "SYMBOL" },
-	{ "-> ", "ARGS_MARKER" },
-	{ " ( ", "FUNC_START" },
-	{ " ) ", "FUNC_END" },
-	{ " [ ", "LIST_START" },
-	{ " ] ", "LIST_END" },
-	{ " { ", "BLOCK_START" },
-	{ " } ", "BLOCK_END"},
-	{ "FN ", "FUNC" },
+	{ "->" , "ARGS_MARKER" },
+	{ "("  , "FUNC_START" },
+	{ ")"  , "FUNC_END" },
+	{ "["  , "LIST_START" },
+	{ "]"  , "LIST_END" },
+	{ "{"  , "BLOCK_START" },
+	{ "}"  , "BLOCK_END"},
+	{ "FN" , "FUNC" },
 	{ "LST", "LIST" },
-	{ " | ", "STACK BOUNDARY" },
+	{ "|"  , "STACK BOUNDARY" },
 	{ "???", "UNKNOWN" },
 };
 

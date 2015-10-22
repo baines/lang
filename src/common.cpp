@@ -55,6 +55,10 @@ void el3::token_print(Token t){
 			fprintf(stderr, ": (NIL)");
 		}
 	}
+
+	if(t.type == TKN_STACK_FRAME){
+		fprintf(stderr, ": (%zu)", t.frame.num);
+	}
 	fprintf(stderr, "]\n");
 }
 

@@ -9,7 +9,7 @@ inline Token lex_number(const char*& code){
 	
 	for(; *code; ++code){
 		result = (result * 10) + (*code - '0');
-		if(*(code + 1) <= '0' || *(code + 1) >= '9') break;
+		if(*(code + 1) < '0' || *(code + 1) > '9') break;
 	}
 	
 	return TokenNumber{result};

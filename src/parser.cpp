@@ -36,7 +36,7 @@ static Status validate_args_marker(const std::vector<Token>& tokens, ssize_t ind
 
 Status Context::parse(const std::vector<Token>& tokens){
 
-	Stack brackets;
+	Stack brackets(tokens.size());
 
 	for(size_t i = 0, j = tokens.size(); i < j; ++i){
 
@@ -65,5 +65,5 @@ Status Context::parse(const std::vector<Token>& tokens){
 		}
 	}
 
-	return no_error;
+	return brackets.frame_empty() ? no_error : Status(EL3_ERR_BRACKET_MISMATCH, brackets.pop());
 }
