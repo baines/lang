@@ -6,6 +6,8 @@
 
 namespace el3 {
 
+	struct TokenStream;
+	struct Context;
 	struct Stack;
 
 	enum ErrorCode {
@@ -34,8 +36,12 @@ namespace el3 {
 
 	struct NativeFunc {
 		alt::StrRef name;
-		std::function<void(Stack&)> ptr;
+		std::function<void(Context&)> ptr;
 	};
+
+	void stdlib_register_funcs(Context&);
+
+	void func_call(TokenFunc, Context& ctx, std::initializer_list<Token> args);
 
 }
 

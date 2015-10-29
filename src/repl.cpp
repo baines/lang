@@ -6,19 +6,6 @@ int main(int argc, char** argv){
 
 	el3::Context ctx;
 
-	ctx.add_func("+", [](el3::Stack& stack){
-		int result = 0;
-
-		while(!stack.frame_empty()){
-			el3::Token t = stack.try_pop(el3::TKN_NUMBER);
-			assert(t);
-			
-			result += t.num.num;
-		}
-
-		stack.push<el3::TokenNumber>(result);
-	});
-
 	read_history("repl_history.txt");
 
 	char* line = nullptr;
@@ -32,7 +19,6 @@ int main(int argc, char** argv){
 		free(line);
 	}
 
-	
 	puts("");
 	return 0;
 }

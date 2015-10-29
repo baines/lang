@@ -1,6 +1,9 @@
 #include "el3.h"
+#include <iterator>
 
 using namespace el3;
+
+namespace el3 {
 
 //XXX: i18n?
 
@@ -18,7 +21,7 @@ void Status::print(){
 	fprintf(stderr, "%s:%d:%d: Error: %s\n", "<stdin>", 0, 0, err_strings[errcode]);
 }
 
-void el3::token_print(Token t){
+void token_print(Token t){
 	fprintf(stderr, "[%s", token_name_full(t));
 
 	if(t.type == TKN_NUMBER){
@@ -60,6 +63,8 @@ void el3::token_print(Token t){
 		fprintf(stderr, ": (%zu)", t.frame.num);
 	}
 	fprintf(stderr, "]\n");
+}
+
 }
 
 

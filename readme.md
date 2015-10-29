@@ -18,6 +18,12 @@ Probable built-in functions to add:
 - 'def' or 'let' style function to add stuff to the symbol table.
 - conditionals like 'if', loops with 'for', 'while' etc.
 
-Trivial currently working example program: (1 + 2 using a lambda function)
+Trivial currently working example programs:
+
+*1 + 2 using a lambda function*
 
     ({ :x -> + x 1 } 2)
+
+*double numbers in a list*
+
+    (map [1 2 3] { :x -> * 2 x })

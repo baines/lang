@@ -5,19 +5,23 @@
 #include <cassert>
 
 using namespace el3;
-using std::vector;
+
+namespace el3 {
 
 struct TokenStream {
-	explicit TokenStream(const vector<Token>& t)
-		: tokens(t), ip(0), limit(t.size()){}
+
+	TokenStream() : tokens(nullptr), ip(0), limit(0){}
+
+	explicit TokenStream(const std::vector<Token>& t)
+		: tokens(&t), ip(0), limit(t.size()){}
 
 	TokenStream(const TokenStream& other, size_t new_ip, size_t lim)
 		: tokens(other.tokens), ip(new_ip), limit(lim){}
 
-	const vector<Token>& tokens;
+	const std::vector<Token>* tokens;
 
 	const Token& current() const {
-		return tokens[ip];
+		return (*tokens)[ip];
 	}
 
 	bool next(){
@@ -27,22 +31,20 @@ struct TokenStream {
 	uint32_t ip, limit;
 };
 
-static void run(TokenStream& tokens, Stack& stack, SymbolTable& syms);
-
-static void run_assert(TokenStream& tokens, Stack& stack, SymbolTable& syms){
+void Context::run_assert(TokenStream& tokens){
 	fprintf(stderr, "Got invalid token: %s.\n", token_name_full(tokens.current()));
 	abort();
 }
 
-static void run_stack_push(TokenStream& tokens, Stack& stack, SymbolTable& syms){
+void Context::run_stack_push(TokenStream& tokens){
 	stack.push(tokens.current());
 }
 
-static void run_frame_push(TokenStream& tokens, Stack& stack, SymbolTable& syms){
+void Context::run_frame_push(TokenStream& tokens){
 	stack.frame_push();
 }
 
-static void run_resolve_id(TokenStream& tokens, Stack& stack, SymbolTable& syms){
+void Context::run_resolve_id(TokenStream& tokens){
 	Token t = syms.lookup(tokens.current());
 	fprintf(
 		stderr,
@@ -55,7 +57,7 @@ static void run_resolve_id(TokenStream& tokens, Stack& stack, SymbolTable& syms)
 	stack.push(t);
 }
 
-static void run_func_eval(TokenStream& tokens, Stack& stack, SymbolTable& syms){
+void Context::run_func_eval(TokenStream& tokens){
 
 	if(stack.frame_empty()){
 		stack.frame_pop();
@@ -78,10 +80,16 @@ static void run_func_eval(TokenStream& tokens, Stack& stack, SymbolTable& syms){
 			// Find matching list_start + push TokenList that points to this stack location.
 			// This should make writing native funcs easier since Lists will be a single
 			//  token, but has other complications.
-			// E.g. modifying lists will need to change the size of previous stack frames 
-			//  that contain the actual list data, which could screw up the pointers.
-			// Alternatively they could be handled in separate memory? There might also be 
-			//  issues with nested lists... Need to think more about a good implementation.
+			
+			uint32_t end_idx = it.index();
+			Token list_elem;
+
+			do {
+				list_elem = it.next();
+			} while(list_elem.type != TKN_LIST_START);
+
+			stack.push<TokenList>(LIST_STACK, it.index() + 1, end_idx);
+
 		} else {
 			stack.push(t);
 		}
@@ -102,7 +110,7 @@ static void run_func_eval(TokenStream& tokens, Stack& stack, SymbolTable& syms){
 				fprintf(stderr, "Calling native func [%s]\n", name);
 			});
 
-			fn->ptr(stack);
+			fn->ptr(*this);
 		}
 		if(eval_token.func.type == FN_BLOCK){
 			size_t start = eval_token.func.block_start, end = eval_token.func.block_end;
@@ -112,11 +120,47 @@ static void run_func_eval(TokenStream& tokens, Stack& stack, SymbolTable& syms){
 			syms.push_scope();
 			
 			fprintf(stderr, "------ running block ------\n");
-			run(sub_tokens, stack, syms);
+			run(sub_tokens);
 			fprintf(stderr, "------ end of block ------\n");
 
 			syms.pop_scope();
 		}
+
+		// go through stack and convert TokenLists to the actual tokens
+
+		auto it = stack.back_iterate();
+		stack.frame_push();
+
+		bool in_list = false;
+
+		while(Token t = it.next()){
+			
+			if(it.peek().type == TKN_LIST_JOIN){
+				stack.push(TKN_LIST_START);
+			}
+
+			if(t.type == TKN_LIST){
+				if(!in_list){
+					stack.push(TKN_LIST_START);
+				}
+
+				for(int i = t.list.stack_start; i < t.list.stack_end; ++i){
+					stack.push(stack[i]);
+				}
+
+				stack.push(TKN_LIST_END);
+				in_list = false;
+
+			} else if(t.type == TKN_LIST_JOIN){
+				in_list = true;
+				assert(it.peek().type == TKN_LIST);
+			} else {
+				stack.push(t);
+			}
+		}
+
+		stack.frame_erase();
+
 	} else {
 		stack.push(eval_token);
 	}
@@ -128,7 +172,7 @@ static void run_func_eval(TokenStream& tokens, Stack& stack, SymbolTable& syms){
 	stack.debug_print();
 }
 
-static void run_block_start(TokenStream& tokens, Stack& stack, SymbolTable& syms){
+void Context::run_block_start(TokenStream& tokens){
 	uint32_t block_start_ip = tokens.ip + 1;
 
 	// skip all tokens until matching block_end token, they shouldn't be evaluated now.
@@ -148,7 +192,7 @@ static void run_block_start(TokenStream& tokens, Stack& stack, SymbolTable& syms
 	stack.push<TokenFunc>(FN_BLOCK, block_start_ip, tokens.ip + 1u);
 }
 
-static void run_bind_args(TokenStream& tokens, Stack& stack, SymbolTable& syms){
+void Context::run_bind_args(TokenStream& tokens){
 	Token t;
 
 	while((t = stack.try_pop(TKN_SYMBOL))){
@@ -167,37 +211,42 @@ static void run_bind_args(TokenStream& tokens, Stack& stack, SymbolTable& syms){
 
 }
 
-static void (*fn_table[])(TokenStream& tokens, Stack& stack, SymbolTable& syms) = {
-	run_assert,      // invalid
-	run_resolve_id,  // id
-	run_stack_push,  // number
-	run_stack_push,  // string
-	run_stack_push,  // symbol
-	run_bind_args,   // args_marker
-	run_frame_push,  // func_start
-	run_func_eval,   // func_end
-	run_assert,      // list_start
-	run_assert,      // list_end
-	run_block_start, // block_start
-	run_func_eval,   // block_end
-
-// should never appear in token stream:
-	run_assert,      // func
-	run_assert,      // list
-	run_assert,      // stack_frame
-	run_assert       // num_tokens
-};
-
-static void run(TokenStream& tokens, Stack& stack, SymbolTable& syms){
+void Context::run(TokenStream& tokens){
 	do {
-		size_t index = static_cast<size_t>(tokens.current().type);
-		fn_table[index](tokens, stack, syms);
+		switch(tokens.current().type){
+			case TKN_ID:
+				run_resolve_id(tokens);
+				break;
+			case TKN_NUMBER:
+			case TKN_STRING:
+			case TKN_SYMBOL:
+			case TKN_LIST_START:
+			case TKN_LIST_END:
+				run_stack_push(tokens);
+				break;
+			case TKN_ARGS_MARKER:
+				run_bind_args(tokens);
+				break;
+			case TKN_FUNC_START:
+				run_frame_push(tokens);
+				break;
+			case TKN_FUNC_END:
+			case TKN_BLOCK_END:
+				run_func_eval(tokens);
+				break;
+			case TKN_BLOCK_START:
+				run_block_start(tokens);
+				break;
+			default:
+				run_assert(tokens);
+				break;
+		}
 	} while(tokens.next());
 }
 
-Status Context::execute(const vector<Token>& token_vec){
-	TokenStream tokens(token_vec);
-	run(tokens, this->stack, this->sym_tab);
+Status Context::execute(const std::vector<Token>& tokens){
+	TokenStream token_stream(tokens);
+	run(token_stream);
 
 	//TODO: report runtime errors
 	return no_error;
@@ -210,24 +259,23 @@ void Context::clear_stack(){
 void Context::run_script(const char* script){
 
 	Status status;
-	std::vector<Token> tokens;
 
-	if(!(status = lex(script, tokens))){
+	if(!(status = lex(script, token_vec))){
 		status.print();
 		return;
 	}
 
 	/*
-	for(auto& t : tokens){
+	for(auto& t : token_vec){
 		t.debug_print();
 	}*/
 
-	if(!(status = parse(tokens))){
+	if(!(status = parse(token_vec))){
 		status.print();
 		return;
 	}
 
-	if(!(status = execute(tokens))){
+	if(!(status = execute(token_vec))){
 		status.print();
 		return;
 	}
@@ -237,5 +285,67 @@ void Context::run_script(const char* script){
 	for(auto& t : stack){
 		token_print(t);
 	}
+
+}
+
+void func_call(TokenFunc func, Context& ctx, std::initializer_list<Token> args){
+
+	ctx.stack.frame_push();
+
+	for(auto i = std::rbegin(args), j = std::rend(args); i != j; ++i){
+		ctx.stack.push(*i);
+	}
+
+	if(func.type == FN_NATIVE){
+		func.native->ptr(ctx);
+	}
+	if(func.type == FN_BLOCK){
+		size_t start = func.block_start, end = func.block_end;
+		TokenStream sub_tokens(TokenStream(ctx.token_vec), start, end);
+
+		ctx.stack.frame_push();
+		ctx.syms.push_scope();
+		
+		fprintf(stderr, "------ running block ------\n");
+		ctx.run(sub_tokens);
+		fprintf(stderr, "------ end of block ------\n");
+
+		ctx.syms.pop_scope();
+	}
+
+	auto it = ctx.stack.back_iterate();
+	ctx.stack.frame_push();
+
+	bool in_list = false;
+
+	while(Token t = it.next()){
+			
+		if(it.peek().type == TKN_LIST_JOIN){
+			ctx.stack.push(TKN_LIST_START);
+		}
+
+		if(t.type == TKN_LIST){
+			if(!in_list){
+				ctx.stack.push(TKN_LIST_START);
+			}
+
+			for(int i = t.list.stack_start; i < t.list.stack_end; ++i){
+				ctx.stack.push(ctx.stack[i]);
+			}
+
+			ctx.stack.push(TKN_LIST_END);
+			in_list = false;
+
+		} else if(t.type == TKN_LIST_JOIN){
+			in_list = true;
+			assert(it.peek().type == TKN_LIST);
+		} else {
+			ctx.stack.push(t);
+		}
+	}
+
+	ctx.stack.frame_erase();
+	ctx.stack.frame_pop();
+}
 
 }

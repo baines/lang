@@ -28,6 +28,18 @@ namespace el3 {
 			}
 		}
 
+		Token peek(){
+			if(count()){
+				return tokens[cursor];
+			} else {
+				return TKN_INVALID;
+			}
+		}
+
+		uint32_t index(){
+			return cursor + 1;
+		}
+
 		size_t cursor, limit;
 		std::vector<Token>& tokens;
 	};
@@ -63,6 +75,33 @@ namespace el3 {
 				return t;
 			} else {
 				return TKN_INVALID;
+			}
+		}
+
+		Token pop_or_throw(TokenType type){
+ 			if(tokens.empty() || tokens.back().type == TKN_STACK_FRAME){
+				throw 4;
+			}
+
+			Token t = tokens.back();
+			if(t.type == type){
+				tokens.pop_back();
+				return t;
+			} else {
+				throw 3;
+			}
+		}
+
+		Token peek_or_throw(TokenType type){
+ 			if(tokens.empty() || tokens.back().type == TKN_STACK_FRAME){
+				throw 4;
+			}
+
+			Token t = tokens.back();
+			if(t.type == type){
+				return t;
+			} else {
+				throw 3;
 			}
 		}
 
@@ -156,6 +195,10 @@ namespace el3 {
 
 		typename std::vector<Token>::iterator end() {
 			return tokens.end();
+		}
+
+		Token operator[](size_t i) const {
+			return tokens[i];
 		}
 
 		std::vector<Token> tokens;

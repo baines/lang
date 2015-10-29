@@ -15,7 +15,7 @@ static TokenType matching_bracket(TokenType t){
 }
 
 static Status validate_args_marker(const std::vector<Token>& tokens, ssize_t index){
-	for(ssize_t i = index - 1; i > 0; --i){
+	for(ssize_t i = index - 1; i >= 0; --i){
 		Token t = tokens[i];
 
 		//NOTE: It is permissible for a block with no args to have an arg marker.

@@ -26,7 +26,10 @@ enum TokenType : uint_fast8_t {
 /* not lexable, only appear on stack. */
 	TKN_FUNC,
 	TKN_LIST,
+	TKN_LIST_JOIN,
 	TKN_STACK_FRAME,
+	TKN_OPAQUE,
+	TKN_NIL,
 
 	NUM_TOKENS
 };
@@ -49,7 +52,7 @@ struct TokenFunc {
 };
 
 struct TokenList {
-	ListType type;	
+	ListType type;
 	uint32_t stack_start, stack_end;
 	//NativeList* start_native;
 };
@@ -98,7 +101,10 @@ static const char* token_names[][2] = {
 	{ "}"  , "BLOCK_END"},
 	{ "FN" , "FUNC" },
 	{ "LST", "LIST" },
+	{ ":::", "LIST_JOIN" },
 	{ "|"  , "STACK BOUNDARY" },
+	{ "*"  , "OPAQUE" },
+	{ "NIL", "NIL" },
 	{ "???", "UNKNOWN" },
 };
 
