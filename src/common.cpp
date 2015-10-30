@@ -1,5 +1,4 @@
 #include "el3.h"
-#include <iterator>
 
 using namespace el3;
 
@@ -16,9 +15,8 @@ static const char* err_strings[] = {
 	"'->' token cannot appear outside a block."
 };
 
-void Status::print(){
-	//TODO: proper filename, line + char number
-	fprintf(stderr, "%s:%d:%d: Error: %s\n", "<stdin>", 0, 0, err_strings[errcode]);
+void error_print(ErrorCode e, Token t){
+	fprintf(stderr, "<stdin>:%u:%u: %s\n", t.source_line, t.source_col, err_strings[e]);
 }
 
 void token_print(Token t){

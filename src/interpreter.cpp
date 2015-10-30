@@ -3,6 +3,7 @@
 #include "stack.h"
 #include <vector>
 #include <cassert>
+#include <cstdarg>
 
 using namespace el3;
 
@@ -10,18 +11,16 @@ namespace el3 {
 
 struct TokenStream {
 
-	TokenStream() : tokens(nullptr), ip(0), limit(0){}
-
 	explicit TokenStream(const std::vector<Token>& t)
-		: tokens(&t), ip(0), limit(t.size()){}
+		: tokens(t), ip(0), limit(t.size()){}
 
 	TokenStream(const TokenStream& other, size_t new_ip, size_t lim)
 		: tokens(other.tokens), ip(new_ip), limit(lim){}
 
-	const std::vector<Token>* tokens;
+	const std::vector<Token>& tokens;
 
 	const Token& current() const {
-		return (*tokens)[ip];
+		return tokens[ip];
 	}
 
 	bool next(){
@@ -32,8 +31,7 @@ struct TokenStream {
 };
 
 void Context::run_assert(TokenStream& tokens){
-	fprintf(stderr, "Got invalid token: %s.\n", token_name_full(tokens.current()));
-	abort();
+	throw EL3_ERR_INVALID_TOKEN;
 }
 
 void Context::run_stack_push(TokenStream& tokens){
@@ -46,6 +44,11 @@ void Context::run_frame_push(TokenStream& tokens){
 
 void Context::run_resolve_id(TokenStream& tokens){
 	Token t = syms.lookup(tokens.current());
+
+	if(t.type == TKN_INVALID){
+		throw UndeclaredIdentifier{ tokens.current().id };
+	}
+
 	fprintf(
 		stderr,
 		"Lookup id %.*s -> %s\n",
@@ -58,6 +61,153 @@ void Context::run_resolve_id(TokenStream& tokens){
 }
 
 void Context::run_func_eval(TokenStream& tokens){
+	func_call_helper(tokens);
+}
+
+void Context::run_block_start(TokenStream& tokens){
+	uint32_t block_start_ip = tokens.ip + 1;
+
+	// skip all tokens until matching block_end token, they shouldn't be evaluated now.
+	int curly_count = 1;
+	while(curly_count > 0 && tokens.next()){
+		TokenType cur_type = tokens.current().type;
+		if(cur_type == TKN_BLOCK_START){
+			++curly_count;
+		} else 
+		if(cur_type == TKN_BLOCK_END){
+		   	--curly_count;
+		}
+	}
+
+	// save the location of the start + end of this block in a block_marker token.
+	// when it is evaluated, all the skipped tokens inside will be evaluated.
+	stack.push<TokenFunc>(FN_BLOCK, block_start_ip, tokens.ip + 1u);
+}
+
+void Context::run_bind_args(TokenStream& tokens){
+	Token t;
+
+	while((t = stack.try_pop(TKN_SYMBOL))){
+		
+		Token binding = stack.pop_under(TKN_STACK_FRAME);
+
+		fprintf(
+			stderr,
+			"Binding arg %.*s -> %s\n",
+			t.sym.len, t.sym.str,
+			token_name_full(binding)
+		);
+
+		syms.add_token(t, binding);
+	}
+
+}
+
+void Context::run(TokenStream& tokens){
+	do {
+		switch(tokens.current().type){
+			case TKN_ID:
+				run_resolve_id(tokens);
+				break;
+			case TKN_NUMBER:
+			case TKN_STRING:
+			case TKN_SYMBOL:
+			case TKN_LIST_START:
+			case TKN_LIST_END:
+				run_stack_push(tokens);
+				break;
+			case TKN_ARGS_MARKER:
+				run_bind_args(tokens);
+				break;
+			case TKN_FUNC_START:
+				run_frame_push(tokens);
+				break;
+			case TKN_FUNC_END:
+			case TKN_BLOCK_END:
+				run_func_eval(tokens);
+				break;
+			case TKN_BLOCK_START:
+				run_block_start(tokens);
+				break;
+			default:
+				run_assert(tokens);
+				break;
+		}
+	} while(tokens.next());
+}
+
+static void runtime_err_print(Token t, const char* fmt, ...){
+
+	fprintf(stderr,	"\n<stdin>:%u:%u: Runtime error: ", t.source_line, t.source_col);
+
+	va_list va;
+	va_start(va, fmt);
+	vfprintf(stderr, fmt, va);
+	va_end(va);
+	
+	fputs("\n", stderr);
+}
+
+bool Context::execute(const std::vector<Token>& tokens){
+	TokenStream ts(tokens);
+
+	//TODO: better error message w/ line + col number, maybe show the error like clang
+
+	try {
+		run(ts);
+	} catch(TypeMismatch err){
+		runtime_err_print(
+			ts.current(),
+			"Expected type %s, got %s",
+			token_name_full(err.expected),
+			token_name_full(err.got)
+		);
+		return false;
+	} catch(UndeclaredIdentifier err){
+		runtime_err_print(ts.current(), "Undeclared identifier: %.*s", err.id.len, err.id.str);
+		return false;
+	} catch(ErrorCode err){
+		error_print(err, ts.current());
+		return false;
+	}
+
+	return true;
+}
+
+void Context::reset(){
+	stack.clear();
+	token_vec.clear();
+}
+
+void Context::run_script(const char* script){
+
+	if(!lex(script, token_vec)) return;
+
+	if(!parse(token_vec)) return;
+
+	if(execute(token_vec)){
+		puts("\nRESULT:");
+
+		for(auto& t : stack){
+			token_print(t);
+		}
+	}
+}
+
+void func_call(TokenFunc func, Context& ctx, std::initializer_list<Token> args){
+
+	ctx.stack.frame_push();
+	ctx.stack.push(func);
+
+	for(auto t : args){
+		ctx.stack.push(t);
+	}
+
+	TokenStream tokens(ctx.token_vec);
+	ctx.func_call_helper(tokens);
+}
+
+void Context::func_call_helper(TokenStream& tokens){
 
 	if(stack.frame_empty()){
 		stack.frame_pop();
@@ -170,182 +320,7 @@ void Context::run_func_eval(TokenStream& tokens){
 
 	fprintf(stderr, "After eval: ");
 	stack.debug_print();
-}
 
-void Context::run_block_start(TokenStream& tokens){
-	uint32_t block_start_ip = tokens.ip + 1;
-
-	// skip all tokens until matching block_end token, they shouldn't be evaluated now.
-	int curly_count = 1;
-	while(curly_count > 0 && tokens.next()){
-		TokenType cur_type = tokens.current().type;
-		if(cur_type == TKN_BLOCK_START){
-			++curly_count;
-		} else 
-		if(cur_type == TKN_BLOCK_END){
-		   	--curly_count;
-		}
-	}
-
-	// save the location of the start + end of this block in a block_marker token.
-	// when it is evaluated, all the skipped tokens inside will be evaluated.
-	stack.push<TokenFunc>(FN_BLOCK, block_start_ip, tokens.ip + 1u);
-}
-
-void Context::run_bind_args(TokenStream& tokens){
-	Token t;
-
-	while((t = stack.try_pop(TKN_SYMBOL))){
-		
-		Token binding = stack.pop_under(TKN_STACK_FRAME);
-
-		fprintf(
-			stderr,
-			"Binding arg %.*s -> %s\n",
-			t.sym.len, t.sym.str,
-			token_name_full(binding)
-		);
-
-		syms.add_token(t, binding);
-	}
-
-}
-
-void Context::run(TokenStream& tokens){
-	do {
-		switch(tokens.current().type){
-			case TKN_ID:
-				run_resolve_id(tokens);
-				break;
-			case TKN_NUMBER:
-			case TKN_STRING:
-			case TKN_SYMBOL:
-			case TKN_LIST_START:
-			case TKN_LIST_END:
-				run_stack_push(tokens);
-				break;
-			case TKN_ARGS_MARKER:
-				run_bind_args(tokens);
-				break;
-			case TKN_FUNC_START:
-				run_frame_push(tokens);
-				break;
-			case TKN_FUNC_END:
-			case TKN_BLOCK_END:
-				run_func_eval(tokens);
-				break;
-			case TKN_BLOCK_START:
-				run_block_start(tokens);
-				break;
-			default:
-				run_assert(tokens);
-				break;
-		}
-	} while(tokens.next());
-}
-
-Status Context::execute(const std::vector<Token>& tokens){
-	TokenStream token_stream(tokens);
-	run(token_stream);
-
-	//TODO: report runtime errors
-	return no_error;
-}
-
-void Context::clear_stack(){
-	stack.clear();
-}
-
-void Context::run_script(const char* script){
-
-	Status status;
-
-	if(!(status = lex(script, token_vec))){
-		status.print();
-		return;
-	}
-
-	/*
-	for(auto& t : token_vec){
-		t.debug_print();
-	}*/
-
-	if(!(status = parse(token_vec))){
-		status.print();
-		return;
-	}
-
-	if(!(status = execute(token_vec))){
-		status.print();
-		return;
-	}
-
-	puts("\nRESULT:");
-
-	for(auto& t : stack){
-		token_print(t);
-	}
-
-}
-
-void func_call(TokenFunc func, Context& ctx, std::initializer_list<Token> args){
-
-	ctx.stack.frame_push();
-
-	for(auto i = std::rbegin(args), j = std::rend(args); i != j; ++i){
-		ctx.stack.push(*i);
-	}
-
-	if(func.type == FN_NATIVE){
-		func.native->ptr(ctx);
-	}
-	if(func.type == FN_BLOCK){
-		size_t start = func.block_start, end = func.block_end;
-		TokenStream sub_tokens(TokenStream(ctx.token_vec), start, end);
-
-		ctx.stack.frame_push();
-		ctx.syms.push_scope();
-		
-		fprintf(stderr, "------ running block ------\n");
-		ctx.run(sub_tokens);
-		fprintf(stderr, "------ end of block ------\n");
-
-		ctx.syms.pop_scope();
-	}
-
-	auto it = ctx.stack.back_iterate();
-	ctx.stack.frame_push();
-
-	bool in_list = false;
-
-	while(Token t = it.next()){
-			
-		if(it.peek().type == TKN_LIST_JOIN){
-			ctx.stack.push(TKN_LIST_START);
-		}
-
-		if(t.type == TKN_LIST){
-			if(!in_list){
-				ctx.stack.push(TKN_LIST_START);
-			}
-
-			for(int i = t.list.stack_start; i < t.list.stack_end; ++i){
-				ctx.stack.push(ctx.stack[i]);
-			}
-
-			ctx.stack.push(TKN_LIST_END);
-			in_list = false;
-
-		} else if(t.type == TKN_LIST_JOIN){
-			in_list = true;
-			assert(it.peek().type == TKN_LIST);
-		} else {
-			ctx.stack.push(t);
-		}
-	}
-
-	ctx.stack.frame_erase();
-	ctx.stack.frame_pop();
 }
 
 }

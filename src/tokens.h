@@ -70,7 +70,7 @@ struct Token {
 		TokenStackFrame frame;
 	};
 
-	uint32_t source_index;
+	uint32_t source_line, source_col;
 
 	Token() = default;
 	Token(TokenType t) : type(t){}

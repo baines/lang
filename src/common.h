@@ -18,21 +18,14 @@ namespace el3 {
 		EL3_ERR_NON_SYMBOL_ARG,
 		EL3_ERR_ARG_MARKER_OUTSIDE_BLOCK,
 	};
+	void error_print(ErrorCode e, Token t);
 
-	struct Status {
-
-		Status() : errcode(EL3_ERR_NONE), token(){}
-		Status(ErrorCode c, Token t) : errcode(c), token(t){}
-
-		operator bool(){ return errcode == EL3_ERR_NONE; }
-
-		void print();
-
-		ErrorCode errcode;
-		Token token;
+	struct TypeMismatch {
+		TokenType expected, got;
 	};
-
-	static const Status no_error;
+	struct UndeclaredIdentifier {
+		TokenIdentifier id;
+	};
 
 	struct NativeFunc {
 		alt::StrRef name;
@@ -42,7 +35,6 @@ namespace el3 {
 	void stdlib_register_funcs(Context&);
 
 	void func_call(TokenFunc, Context& ctx, std::initializer_list<Token> args);
-
 }
 
 #endif

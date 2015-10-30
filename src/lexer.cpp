@@ -65,7 +65,7 @@ inline Token lex_string(const char*& code){
 	return TokenString{ name, uint32_t(code - name) };
 }
 
-Status Context::lex(const char* code, std::vector<Token>& tokens){
+bool Context::lex(const char* code, std::vector<Token>& tokens){
 	const char* line_start = code;
 	size_t line_num = 0;
 
@@ -81,6 +81,7 @@ Status Context::lex(const char* code, std::vector<Token>& tokens){
 		}
 
 		Token t(TKN_INVALID);
+		size_t col_num = code - line_start;
 				
 		if(*code >= '0' && *code <= '9'){
 			t = lex_number(code);
@@ -99,6 +100,8 @@ Status Context::lex(const char* code, std::vector<Token>& tokens){
 		}
 		
 		if(t){
+			t.source_line = line_num;
+			t.source_col = col_num;
 			tokens.push_back(t);
 		} else {
 			fprintf(
@@ -109,10 +112,10 @@ Status Context::lex(const char* code, std::vector<Token>& tokens){
 				*code
 			);
 
-			return Status(EL3_ERR_INVALID_TOKEN, t);
+			return false;
 		}
 	}
 
-	return no_error;
+	return true;
 }
 

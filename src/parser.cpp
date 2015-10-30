@@ -14,27 +14,28 @@ static TokenType matching_bracket(TokenType t){
 	}
 }
 
-static Status validate_args_marker(const std::vector<Token>& tokens, ssize_t index){
+static ErrorCode validate_args_marker(const std::vector<Token>& tokens, size_t& index){
 	for(ssize_t i = index - 1; i >= 0; --i){
 		Token t = tokens[i];
 
 		//NOTE: It is permissible for a block with no args to have an arg marker.
 
 		if(t.type == TKN_BLOCK_START){
-			return no_error;
+			return EL3_ERR_NONE;
 		}
 		if(t.type == TKN_ARGS_MARKER){
-			return Status(EL3_ERR_MULTIPLE_ARG_DECL, tokens[index]);
+			return EL3_ERR_MULTIPLE_ARG_DECL;
 		}
 		if(t.type != TKN_SYMBOL){
-			return Status(EL3_ERR_NON_SYMBOL_ARG, tokens[i]);
+			index = i;
+			return EL3_ERR_NON_SYMBOL_ARG;
 		}
 	}
 
-	return Status(EL3_ERR_ARG_MARKER_OUTSIDE_BLOCK, tokens[index]);
+	return EL3_ERR_ARG_MARKER_OUTSIDE_BLOCK;
 }
 
-Status Context::parse(const std::vector<Token>& tokens){
+bool Context::parse(const std::vector<Token>& tokens){
 
 	Stack brackets(tokens.size());
 
@@ -53,17 +54,26 @@ Status Context::parse(const std::vector<Token>& tokens){
 			case TKN_LIST_END: {
 				Token match = brackets.pop();
 				if(match.type != matching_bracket(t.type)){
-					return Status(EL3_ERR_BRACKET_MISMATCH, t);
+					error_print(EL3_ERR_BRACKET_MISMATCH, t);
+					return false;
 				}
 				break;
 			}
 			case TKN_ARGS_MARKER: {
-				auto status = validate_args_marker(tokens, i);
-				if(!status) return status;
+				ErrorCode e;
+				if((e = validate_args_marker(tokens, i))){
+					error_print(e, tokens[i]);
+					return false;
+				}
 				break;
 			}
 		}
 	}
 
-	return brackets.frame_empty() ? no_error : Status(EL3_ERR_BRACKET_MISMATCH, brackets.pop());
+	if(!brackets.frame_empty()){
+		error_print(EL3_ERR_BRACKET_MISMATCH, brackets.pop());
+		return false;
+	} else {
+		return true;
+	}
 }

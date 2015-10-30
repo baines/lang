@@ -14,7 +14,7 @@ int main(int argc, char** argv){
 		write_history("repl_history.txt");
 		
 		ctx.run_script(line);
-		ctx.clear_stack();
+		ctx.reset();
 
 		free(line);
 	}

@@ -80,7 +80,7 @@ namespace el3 {
 
 		Token pop_or_throw(TokenType type){
  			if(tokens.empty() || tokens.back().type == TKN_STACK_FRAME){
-				throw 4;
+				throw TypeMismatch{ type, TKN_NIL };
 			}
 
 			Token t = tokens.back();
@@ -88,20 +88,20 @@ namespace el3 {
 				tokens.pop_back();
 				return t;
 			} else {
-				throw 3;
+				throw TypeMismatch{ type, t.type };
 			}
 		}
 
 		Token peek_or_throw(TokenType type){
  			if(tokens.empty() || tokens.back().type == TKN_STACK_FRAME){
-				throw 4;
+				throw TypeMismatch{ type, TKN_NIL };
 			}
 
 			Token t = tokens.back();
 			if(t.type == type){
 				return t;
 			} else {
-				throw 3;
+				throw TypeMismatch{ type, t.type };
 			}
 		}
 

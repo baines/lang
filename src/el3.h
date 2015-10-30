@@ -19,19 +19,19 @@ namespace el3 {
 		}
 
 		void run_script(const char* script);
-		void clear_stack();
+		void reset();
 
 		Stack stack;
 		SymbolTable syms;
 		std::vector<Token> token_vec;
 
-		void run(TokenStream&);
-
+		void func_call_helper(TokenStream&);
 	private:
-		Status lex(const char* script, std::vector<Token>& tokens);
-		Status parse(const std::vector<Token>& tokens);
-		Status execute(const std::vector<Token>& tokens);
+		bool lex(const char* script, std::vector<Token>& tokens);
+		bool parse(const std::vector<Token>& tokens);
+		bool execute(const std::vector<Token>& tokens);
 
+		void run(TokenStream&);
 		void run_assert(TokenStream&);
 		void run_resolve_id(TokenStream&);
 		void run_stack_push(TokenStream&);
