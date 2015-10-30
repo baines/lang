@@ -19,48 +19,48 @@ void error_print(ErrorCode e, Token t){
 	fprintf(stderr, "<stdin>:%u:%u: %s\n", t.source_line, t.source_col, err_strings[e]);
 }
 
-void token_print(Token t){
-	fprintf(stderr, "[%s", token_name_full(t));
+void token_print(Token t, FILE* f){
+	fprintf(f, "[%s", token_name_full(t));
 
 	if(t.type == TKN_NUMBER){
-		fprintf(stderr, ": %d", t.num.num);		
+		fprintf(f, ": %d", t.num.num);		
 	}
 
 	if(t.type == TKN_STRING || t.type == TKN_ID || t.type == TKN_SYMBOL){
-		fprintf(stderr, ": %.*s", t.str.len, t.str.str);
+		fprintf(f, ": %.*s", t.str.len, t.str.str);
 	}
 
 	if(t.type == TKN_FUNC){
 		if(t.func.type == FN_BLOCK){
-			fprintf(stderr, ": (BLOCK @ [%d:%d])", t.func.block_start, t.func.block_end);
+			fprintf(f, ": (BLOCK @ [%d:%d])", t.func.block_start, t.func.block_end);
 		} else
 		if(t.func.type == FN_NATIVE){
 			fprintf(
-				stderr,
+				f,
 				": (NATIVE [%.*s])",
 				t.func.native->name.sizei(),
 				t.func.native->name.data()
 			);
 		} else {
-			fprintf(stderr, ": (NIL)");
+			fprintf(f, ": (NIL)");
 		}
 	}
 
 	if(t.type == TKN_LIST){
 		if(t.list.type == LIST_STACK){
-			fprintf(stderr, ": (STACK)");
+			fprintf(f, ": (STACK)");
 		} else
 		if(t.list.type == LIST_NATIVE){
-			fprintf(stderr, ": (NATIVE)");
+			fprintf(f, ": (NATIVE)");
 		} else {
-			fprintf(stderr, ": (NIL)");
+			fprintf(f, ": (NIL)");
 		}
 	}
 
 	if(t.type == TKN_STACK_FRAME){
-		fprintf(stderr, ": (%zu)", t.frame.num);
+		fprintf(f, ": (%zu)", t.frame.num);
 	}
-	fprintf(stderr, "]\n");
+	fprintf(f, "]\n");
 }
 
 }

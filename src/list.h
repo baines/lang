@@ -3,6 +3,9 @@
 
 namespace el3 {
 
+// FIXME: all these functions need to transform LIST_START / LIST_END tokens
+//        into TKN_LIST 
+
 bool list_empty(TokenList list){
 	return list.stack_start == list.stack_end;
 }
@@ -25,13 +28,28 @@ TokenList list_tail(TokenList list, const Stack& s){
 }
 
 template<class F>
+void list_foreach(TokenList list, const Stack& s, F&& func){
+	while(!list_empty(list)){
+		Token t = s[list.stack_start++];
+		func(t);
+	}
+}
+
+template<class F>
 void list_foreach_rev(TokenList list, const Stack& s, F&& func){
 	while(!list_empty(list)){
-		fprintf(stderr, "IN LIST:");
 		Token t = s[--list.stack_end];
-		token_print(t);
-
 		func(t);
+	}
+}
+
+template<class F>
+void list_foreach_kv(TokenList list, const Stack& s, F&& func){
+	while(!list_empty(list)){
+		Token k = s[list.stack_start++];
+		Token v = list_empty(list) ? TKN_NIL : s[list.stack_start++];
+
+		func(k, v);
 	}
 }
 

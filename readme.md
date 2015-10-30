@@ -27,3 +27,13 @@ Trivial currently working example programs:
 *double numbers in a list*
 
     (map [1 2 3] { :x -> * 2 x })
+    
+*count down from 10*
+
+    (let [:x 10] {
+        while { x } {
+            (echo x)
+            (= :x (- x 1))
+        }
+    })
+    

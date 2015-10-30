@@ -30,6 +30,22 @@ namespace el3 {
 			syms.emplace_back(name, val, frame_num);
 		}
 
+		bool update_token(Token id, Token val){
+			if(id.type != TKN_ID && id.type != TKN_SYMBOL){
+				return false;
+			}
+
+			const alt::StrRef name(id.id.str, id.id.len);
+			auto it = std::find(syms.rbegin(), syms.rend(), name);
+			
+			if(it == syms.rend()){
+				return false;
+			}
+
+			it->token = val;
+			return true;
+		}
+
 		Token lookup(Token id){
 			if(id.type != TKN_ID && id.type != TKN_SYMBOL){
 				return TKN_INVALID;
@@ -71,6 +87,9 @@ namespace el3 {
 				return name == str;
 			}
 		};
+
+		const Entry* begin() const { return syms.data(); }
+		const Entry* end()   const { return syms.data() + syms.size(); }
 
 		std::vector<Entry> syms;
 		uint32_t frame_num;

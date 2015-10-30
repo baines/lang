@@ -111,7 +111,7 @@ static const char* token_names[][2] = {
 inline const char* token_name(Token t){ return token_names[t.type][0]; }
 inline const char* token_name_full(Token t){ return token_names[t.type][1]; }
 
-void token_print(Token t);
+void token_print(Token t, FILE* f = stderr);
 
 }
 

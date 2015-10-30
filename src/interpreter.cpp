@@ -152,6 +152,7 @@ bool Context::execute(const std::vector<Token>& tokens){
 	TokenStream ts(tokens);
 
 	//TODO: better error message w/ line + col number, maybe show the error like clang
+	//FIXME: ts.current() refers to the wrong token for some of these errors...
 
 	try {
 		run(ts);
@@ -186,7 +187,7 @@ void Context::run_script(const char* script){
 	if(!parse(token_vec)) return;
 
 	if(execute(token_vec)){
-		puts("\nRESULT:");
+		fputs("\nRESULT:\n", stderr);
 
 		for(auto& t : stack){
 			token_print(t);
@@ -234,6 +235,7 @@ void Context::func_call_helper(TokenStream& tokens){
 			uint32_t end_idx = it.index();
 			Token list_elem;
 
+			//FIXME: totally broken for nested lists...
 			do {
 				list_elem = it.next();
 			} while(list_elem.type != TKN_LIST_START);

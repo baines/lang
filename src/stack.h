@@ -56,7 +56,7 @@ namespace el3 {
 
 		Token pop() {
 			if(tokens.empty() || tokens.back().type == TKN_STACK_FRAME){
-				return TKN_INVALID;
+				return TKN_NIL;
 			}
 
 			Token t = tokens.back();
@@ -66,7 +66,7 @@ namespace el3 {
 
 		Token try_pop(TokenType type){
 			if(tokens.empty() || tokens.back().type == TKN_STACK_FRAME){
-				return TKN_INVALID;
+				return TKN_NIL;
 			}
 
 			Token t = tokens.back();
@@ -74,7 +74,7 @@ namespace el3 {
 				tokens.pop_back();
 				return t;
 			} else {
-				return TKN_INVALID;
+				return TKN_NIL;
 			}
 		}
 
@@ -109,7 +109,7 @@ namespace el3 {
 			auto it = std::find(tokens.rbegin(), tokens.rend(), type);
 
 			if(it == tokens.rend() || ++it == tokens.rend()){
-				return TKN_INVALID;
+				return TKN_NIL;
 			} else {
 				Token t = *it;
 				tokens.erase(it.base()-1);
