@@ -63,31 +63,31 @@ static void stdlib_assign(Context& ctx){
 static void stdlib_gt(Context& ctx){
 	Token a = ctx.stack.pop_or_throw(TKN_NUMBER);
 	Token b = ctx.stack.pop_or_throw(TKN_NUMBER);
-	ctx.stack.push<TokenNumber>(a.num.num > b.num.num ? 1 : 0);
+	ctx.stack.push<TokenNumber>(a.num.num > b.num.num);
 }
 
 static void stdlib_lt(Context& ctx){
 	Token a = ctx.stack.pop_or_throw(TKN_NUMBER);
 	Token b = ctx.stack.pop_or_throw(TKN_NUMBER);
-	ctx.stack.push<TokenNumber>(a.num.num < b.num.num ? 1 : 0);
+	ctx.stack.push<TokenNumber>(a.num.num < b.num.num);
 }
 
 static void stdlib_eq(Context& ctx){
 	Token a = ctx.stack.pop_or_throw(TKN_NUMBER);
 	Token b = ctx.stack.pop_or_throw(TKN_NUMBER);
-	ctx.stack.push<TokenNumber>(a.num.num == b.num.num ? 1 : 0);
+	ctx.stack.push<TokenNumber>(a.num.num == b.num.num);
 }
 
 static void stdlib_ge(Context& ctx){
 	Token a = ctx.stack.pop_or_throw(TKN_NUMBER);
 	Token b = ctx.stack.pop_or_throw(TKN_NUMBER);
-	ctx.stack.push<TokenNumber>(a.num.num >= b.num.num ? 1 : 0);
+	ctx.stack.push<TokenNumber>(a.num.num >= b.num.num);
 }
 
 static void stdlib_le(Context& ctx){
 	Token a = ctx.stack.pop_or_throw(TKN_NUMBER);
 	Token b = ctx.stack.pop_or_throw(TKN_NUMBER);
-	ctx.stack.push<TokenNumber>(a.num.num <= b.num.num ? 1 : 0);
+	ctx.stack.push<TokenNumber>(a.num.num <= b.num.num);
 }
 
 static void stdlib_cons(Context& ctx){
@@ -135,6 +135,7 @@ static void stdlib_if(Context& ctx){
 		case TKN_NIL:    choice = false;            break;
 	}
 
+	//TODO: evaluate token before pushing, to avoid double bracketed ((if ...)) requirement
 	ctx.stack.push(choice ? t_true : t_false);
 }
 
@@ -229,7 +230,20 @@ void el3::stdlib_register_funcs(Context& ctx){
 	ctx.add_func("-", &stdlib_sub);
 	ctx.add_func("*", &stdlib_mul);
 	ctx.add_func("/", &stdlib_div);
+/*
+	TODO:
 
+	--
+	++
+
+	-=
+	+=
+	*=
+	/=
+
+	&&
+	||
+*/
 	ctx.add_func("=", &stdlib_assign);
 
 	ctx.add_func(">",  &stdlib_gt);

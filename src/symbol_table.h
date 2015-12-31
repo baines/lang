@@ -6,7 +6,7 @@
 #include <functional>
 #include "common.h"
 #include "tokens.h"
-#include "altlib/alt.h"
+#include "alt_str.h"
 
 //TODO: use hashes instead of actual strings for better lookup speed.
 

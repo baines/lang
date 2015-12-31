@@ -21,7 +21,7 @@ inline Token lex_identifier(const char*& code){
 	const char* name = code;
 
 	char c;
-	while(c = *(code+1), reserved_chars.find(c) == reserved_chars.end() && isgraph(c)){
+	while(c = *(code+1), !reserved_chars.contains(c) && isgraph(c)){
 		++code;
 	}
 	

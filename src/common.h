@@ -1,7 +1,7 @@
 #ifndef EL3_COMMON_H_
 #define EL3_COMMON_H_
 #include "tokens.h"
-#include "altlib/alt.h"
+#include "alt_str.h"
 #include <functional>
 
 namespace el3 {
